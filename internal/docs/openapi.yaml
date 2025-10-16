@@ -1,36 +1,153 @@
-openapi: 3.1.0
+
+openapi: 3.0.3
 info:
   title: Retech Core API
-  version: 0.1.0
+  version: 0.2.1-stage2.1
+  description: |
+    API utilitária multitenant com autenticação via API Key e endpoints GEO (UFs, municípios e RAs do DF).
 servers:
   - url: http://localhost:8080
+tags:
+  - name: Infra
+  - name: API Keys
+  - name: GEO
 paths:
   /health:
     get:
+      tags: [Infra]
       summary: Health check
       responses:
-        '200':
-          description: OK
+        '200': { description: OK }
   /version:
     get:
+      tags: [Infra]
       summary: Version info
+      responses:
+        '200': { description: OK }
+  /openapi.yaml:
+    get:
+      tags: [Infra]
+      summary: OpenAPI raw (this document)
+      responses:
+        '200': { description: Spec }
+  /docs:
+    get:
+      tags: [Infra]
+      summary: Redoc UI
+      responses:
+        '200': { description: HTML }
+  /apikeys:
+    post:
+      tags: [API Keys]
+      summary: Cria uma API Key (retorna chave apenas uma vez)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ownerId]
+              properties:
+                ownerId: { type: string }
+                roles: { type: array, items: { type: string }, description: "Ex.: ['client']" }
+                scopes: { type: array, items: { type: string }, description: "Ex.: ['geo:read']" }
+                days: { type: integer, description: "Dias até expiração (default .env)" }
+      responses:
+        '201':
+          description: Criada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key: { type: string, description: "Formato keyId.keySecret" }
+                  expiresAt: { type: string, format: date-time }
+  /apikeys/rotate:
+    post:
+      tags: [API Keys]
+      summary: Rotaciona uma API Key pelo keyId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyId]
+              properties:
+                keyId: { type: string }
+      responses:
+        '201': { description: Nova chave emitida }
+  /apikeys/revoke:
+    post:
+      tags: [API Keys]
+      summary: Revoga uma API Key pelo keyId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyId]
+              properties:
+                keyId: { type: string }
+      responses:
+        '204': { description: Revogada }
+  /protected/apikey:
+    get:
+      tags: [API Keys]
+      summary: Exemplo de rota protegida por API Key
+      parameters:
+        - in: header
+          name: X-API-Key
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '401': { description: API Key inválida }
+  /geo/ufs:
+    get:
+      tags: [GEO]
+      summary: Lista UFs (opcional filtro q) — fonte: seed local
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Filtro "contains" no nome/sigla
+      security:
+        - ApiKeyAuth: []
       responses:
         '200':
           description: OK
-  /openapi.yaml:
+  /geo/municipios:
     get:
-      summary: OpenAPI raw
+      tags: [GEO]
+      summary: Lista municípios por UF (opcional q)
+      parameters:
+        - in: query
+          name: uf
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 2 }
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Filtro "contains" no nome
+      security:
+        - ApiKeyAuth: []
       responses:
-        '200':
-          description: Spec
+        '200': { description: OK }
+        '400': { description: Parâmetro uf ausente/ inválido }
+  /geo/df/ras:
+    get:
+      tags: [GEO]
+      summary: Lista Regiões Administrativas do DF — fonte: seed local
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200': { description: OK }
 components:
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
 

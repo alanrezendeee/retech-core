@@ -9,11 +9,22 @@
     body { margin: 0; }
     .top-banner { padding: 12px 16px; background: #0f172a; color: #fff; font-family: ui-sans-serif, system-ui; }
     .top-banner strong { color: #22c55e; }
+    #redoc-container { height: calc(100vh - 44px); }
+    #error { padding:12px; color:#b91c1c; font-family: ui-sans-serif, system-ui; }
   </style>
 </head>
 <body>
   <div class="top-banner"><strong>Retech Core</strong> — Documentação de APIs utilitárias</div>
-  <redoc spec-url="/openapi.yaml" hide-download-button="false" expand-responses="all"></redoc>
+  <div id="error"></div>
+  <div id="redoc-container"></div>
+  <script>
+    Redoc.init('/openapi.yaml', { expandResponses: 'all' }, document.getElementById('redoc-container'))
+      .catch(err => {
+        const el = document.getElementById('error');
+        el.textContent = 'Falha ao carregar o OpenAPI: ' + (err && err.message ? err.message : err);
+        console.error('Redoc error:', err);
+      });
+  </script>
 </body>
 </html>
 
