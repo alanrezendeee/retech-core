@@ -1,45 +1,158 @@
-
 openapi: 3.0.3
 info:
   title: Retech Core API
   version: 0.2.1-stage2.1
-  description: |
-    API utilitária multitenant com autenticação via API Key e endpoints GEO (UFs, municípios e RAs do DF).
+  description: API utilitaria multitenant com autenticacao via API Key
 servers:
   - url: http://localhost:8080
 tags:
   - name: Infra
+  - name: Tenants
   - name: API Keys
-  - name: GEO
 paths:
   /health:
     get:
       tags: [Infra]
       summary: Health check
       responses:
-        '200': { description: OK }
+        '200': 
+          description: OK
   /version:
     get:
       tags: [Infra]
       summary: Version info
       responses:
-        '200': { description: OK }
-  /openapi.yaml:
-    get:
-      tags: [Infra]
-      summary: OpenAPI raw (this document)
-      responses:
-        '200': { description: Spec }
+        '200': 
+          description: OK
   /docs:
     get:
       tags: [Infra]
       summary: Redoc UI
       responses:
-        '200': { description: HTML }
+        '200': 
+          description: HTML
+  /openapi.yaml:
+    get:
+      tags: [Infra]
+      summary: OpenAPI spec
+      responses:
+        '200': 
+          description: Spec
+  /tenants:
+    post:
+      tags: [Tenants]
+      summary: Create tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, name, email]
+              properties:
+                tenantId: 
+                  type: string
+                  description: Tenant ID
+                name: 
+                  type: string
+                  description: Tenant name
+                email: 
+                  type: string
+                  format: email
+                  description: Contact email
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '409': 
+          description: Conflict
+    get:
+      tags: [Tenants]
+      summary: List tenants
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+  /tenants/{id}:
+    get:
+      tags: [Tenants]
+      summary: Get tenant
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '404': 
+          description: Not found
+    put:
+      tags: [Tenants]
+      summary: Update tenant
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: 
+                  type: string
+                email: 
+                  type: string
+                  format: email
+                active: 
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        '404': 
+          description: Not found
+    delete:
+      tags: [Tenants]
+      summary: Delete tenant
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: 
+            type: string
+      responses:
+        '204': 
+          description: No content
+        '404': 
+          description: Not found
   /apikeys:
     post:
       tags: [API Keys]
-      summary: Cria uma API Key (retorna chave apenas uma vez)
+      summary: Create API key
       requestBody:
         required: true
         content:
@@ -48,24 +161,39 @@ paths:
               type: object
               required: [ownerId]
               properties:
-                ownerId: { type: string }
-                roles: { type: array, items: { type: string }, description: "Ex.: ['client']" }
-                scopes: { type: array, items: { type: string }, description: "Ex.: ['geo:read']" }
-                days: { type: integer, description: "Dias até expiração (default .env)" }
+                ownerId: 
+                  type: string
+                  description: Tenant ID
+                scopes: 
+                  type: array
+                  items: 
+                    type: string
+                  description: Scopes
+                days: 
+                  type: integer
+                  description: Days until expiration
       responses:
         '201':
-          description: Criada
+          description: Created
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  api_key: { type: string, description: "Formato keyId.keySecret" }
-                  expiresAt: { type: string, format: date-time }
+                  api_key: 
+                    type: string
+                    description: API key
+                  expiresAt: 
+                    type: string
+                    format: date-time
+        '404': 
+          description: Tenant not found
+        '400': 
+          description: Tenant inactive
   /apikeys/rotate:
     post:
       tags: [API Keys]
-      summary: Rotaciona uma API Key pelo keyId
+      summary: Rotate API key
       requestBody:
         required: true
         content:
@@ -74,13 +202,34 @@ paths:
               type: object
               required: [keyId]
               properties:
-                keyId: { type: string }
+                keyId: 
+                  type: string
+                  description: ID of the API key to rotate
       responses:
-        '201': { description: Nova chave emitida }
+        '201': 
+          description: New API key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key: 
+                    type: string
+                    description: New API key
+                  expiresAt: 
+                    type: string
+                    format: date-time
+                  message: 
+                    type: string
+                    description: Success message
+        '404': 
+          description: API key not found
+        '400': 
+          description: Bad request
   /apikeys/revoke:
     post:
       tags: [API Keys]
-      summary: Revoga uma API Key pelo keyId
+      summary: Revoke API key
       requestBody:
         required: true
         content:
@@ -89,65 +238,54 @@ paths:
               type: object
               required: [keyId]
               properties:
-                keyId: { type: string }
+                keyId: 
+                  type: string
       responses:
-        '204': { description: Revogada }
+        '204': 
+          description: No content
   /protected/apikey:
     get:
       tags: [API Keys]
-      summary: Exemplo de rota protegida por API Key
+      summary: Test protected endpoint
       parameters:
         - in: header
           name: X-API-Key
           required: true
-          schema: { type: string }
+          schema: 
+            type: string
       responses:
-        '200': { description: OK }
-        '401': { description: API Key inválida }
-  /geo/ufs:
-    get:
-      tags: [GEO]
-      summary: Lista UFs (opcional filtro q) — fonte: seed local
-      parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-          description: Filtro "contains" no nome/sigla
-      security:
-        - ApiKeyAuth: []
-      responses:
-        '200':
+        '200': 
           description: OK
-  /geo/municipios:
-    get:
-      tags: [GEO]
-      summary: Lista municípios por UF (opcional q)
-      parameters:
-        - in: query
-          name: uf
-          required: true
-          schema: { type: string, minLength: 2, maxLength: 2 }
-        - in: query
-          name: q
-          schema: { type: string }
-          description: Filtro "contains" no nome
-      security:
-        - ApiKeyAuth: []
-      responses:
-        '200': { description: OK }
-        '400': { description: Parâmetro uf ausente/ inválido }
-  /geo/df/ras:
-    get:
-      tags: [GEO]
-      summary: Lista Regiões Administrativas do DF — fonte: seed local
-      security:
-        - ApiKeyAuth: []
-      responses:
-        '200': { description: OK }
+        '401': 
+          description: Unauthorized
 components:
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        id: 
+          type: string
+        tenantId: 
+          type: string
+          description: Tenant ID
+        name: 
+          type: string
+          description: Tenant name
+        email: 
+          type: string
+          format: email
+          description: Contact email
+        active: 
+          type: boolean
+          description: Is active
+        createdAt: 
+          type: string
+          format: date-time
+        updatedAt: 
+          type: string
+          format: date-time
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
-

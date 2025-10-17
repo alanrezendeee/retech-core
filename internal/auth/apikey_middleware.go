@@ -38,8 +38,7 @@ func AuthAPIKey(repo *storage.APIKeysRepo) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error":"invalid api key"})
 			return
 		}
-		// opcional: set roles/scopes no contexto
-		c.Set(CtxRoles, k.Roles)
+	
 		c.Next()
 	}
 }

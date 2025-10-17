@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/config"
-	"github.com/theretech/retech-core/internal/http/handlers"
 	nethttp "github.com/theretech/retech-core/internal/http"
+	"github.com/theretech/retech-core/internal/http/handlers"
 	"github.com/theretech/retech-core/internal/observability"
 	"github.com/theretech/retech-core/internal/storage"
 )
@@ -23,19 +22,12 @@ func main() {
 	}
 
 	// Repos
-	users := storage.NewUsersRepo(m.DB)
-	tokens := storage.NewTokensRepo(m.DB)
+	tenants := storage.NewTenantsRepo(m.DB)
 	apikeys := storage.NewAPIKeysRepo(m.DB)
-
-	// JWT
-	jwtSvc, err := auth.NewJWTService()
-	if err != nil {
-		log.Fatal().Err(err).Msg("jwt")
-	}
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, health, jwtSvc, users, tokens, apikeys)
+	router := nethttp.NewRouter(log, health, apikeys, tenants)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
@@ -51,4 +43,3 @@ func main() {
 	}
 	fmt.Println()
 }
-

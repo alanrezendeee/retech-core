@@ -1,0 +1,434 @@
+{
+  "info": {
+    "name": "Retech Core API",
+    "description": "API utilitaria multitenant com autenticacao via API Key e endpoints GEO",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.1.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Infra",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/version",
+              "host": ["{{baseUrl}}"],
+              "path": ["version"]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI Spec",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/openapi.yaml",
+              "host": ["{{baseUrl}}"],
+              "path": ["openapi.yaml"]
+            }
+          }
+        },
+        {
+          "name": "Documentation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('Tenant criado:', response.tenantId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-1\",\n  \"name\": \"Cliente XYZ\",\n  \"email\": \"contato@clientexyz.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/tenant-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "tenant-1"]
+            }
+          }
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente XYZ Atualizado\",\n  \"email\": \"novo@clientexyz.com\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants/tenant-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "tenant-1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/tenant-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "tenant-1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "Create API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    console.log('API Key criada:', response.api_key);",
+                  "    pm.collectionVariables.set('apiKey', response.api_key);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": \"tenant-1\",\n  \"scopes\": [\"geo:read\"],\n  \"days\": 60\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/apikeys",
+              "host": ["{{baseUrl}}"],
+              "path": ["apikeys"]
+            }
+          }
+        },
+        {
+          "name": "Create API Key - Tenant Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 404 for non-existent tenant', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test('Should return tenant not found error', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.error).to.equal('tenant not found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": \"tenant-inexistente\",\n  \"scopes\": [\"geo:read\"],\n  \"days\": 60\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/apikeys",
+              "host": ["{{baseUrl}}"],
+              "path": ["apikeys"]
+            }
+          }
+        },
+        {
+          "name": "Rotate API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyId\": \"seu-key-id-aqui\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/apikeys/rotate",
+              "host": ["{{baseUrl}}"],
+              "path": ["apikeys", "rotate"]
+            }
+          }
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keyId\": \"seu-key-id-aqui\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/apikeys/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["apikeys", "revoke"]
+            }
+          }
+        },
+        {
+          "name": "Test Protected Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/protected/apikey",
+              "host": ["{{baseUrl}}"],
+              "path": ["protected", "apikey"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "GEO",
+      "item": [
+        {
+          "name": "List UFs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geo/ufs",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "ufs"]
+            }
+          }
+        },
+        {
+          "name": "List UFs with Filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geo/ufs?q=sao",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "ufs"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "sao"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Municipios by UF",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geo/municipios?uf=SP",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "municipios"],
+              "query": [
+                {
+                  "key": "uf",
+                  "value": "SP"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Municipios with Filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geo/municipios?uf=SP&q=sao",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "municipios"],
+              "query": [
+                {
+                  "key": "uf",
+                  "value": "SP"
+                },
+                {
+                  "key": "q",
+                  "value": "sao"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List DF RAs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/geo/df/ras",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "df", "ras"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

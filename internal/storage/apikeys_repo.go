@@ -34,3 +34,10 @@ func (r *APIKeysRepo) ByKeyID(ctx context.Context, keyId string) (*domain.APIKey
 	return &a, err
 }
 
+func (r *APIKeysRepo) ByKeyIDAny(ctx context.Context, keyId string) (*domain.APIKey, error) {
+	var a domain.APIKey
+	err := r.col.FindOne(ctx, bson.M{"keyId": keyId}).Decode(&a)
+	if err == mongo.ErrNoDocuments { return nil, nil }
+	return &a, err
+}
+
