@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
   title: Retech Core API
-  version: 0.2.1-stage2.1
-  description: API utilitaria multitenant com autenticacao via API Key
+  version: 0.3.0
+  description: API utilitária multitenant com autenticação via API Key e dados geográficos do Brasil
 servers:
   - url: http://localhost:8080
 tags:
   - name: Infra
   - name: Tenants
   - name: API Keys
+  - name: GEO
 paths:
   /health:
     get:
@@ -258,6 +259,203 @@ paths:
           description: OK
         '401': 
           description: Unauthorized
+  /geo/ufs:
+    get:
+      tags: [GEO]
+      summary: Lista todos os estados brasileiros
+      description: Retorna todos os 27 estados do Brasil com suas regiões. Suporta busca parcial por nome ou sigla.
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Busca parcial por nome ou sigla do estado (ex. "pernam", "PE")
+      responses:
+        '200':
+          description: Lista de estados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                code: "OK"
+                data:
+                  - id: 26
+                    sigla: "PE"
+                    nome: "Pernambuco"
+                    regiao:
+                      id: 2
+                      sigla: "NE"
+                      nome: "Nordeste"
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /geo/ufs/{sigla}:
+    get:
+      tags: [GEO]
+      summary: Busca estado por sigla
+      description: Retorna informações de um estado específico pela sua sigla (ex. PE, SP, RJ)
+      parameters:
+        - in: path
+          name: sigla
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+          description: Sigla do estado (ex. PE, SP, RJ)
+      responses:
+        '200':
+          description: Estado encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                code: "OK"
+                data:
+                  id: 26
+                  sigla: "PE"
+                  nome: "Pernambuco"
+                  regiao:
+                    id: 2
+                    sigla: "NE"
+                    nome: "Nordeste"
+        '404':
+          description: Estado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /geo/municipios:
+    get:
+      tags: [GEO]
+      summary: Lista municípios com filtros opcionais
+      description: Retorna municípios brasileiros. Suporta filtros por UF e busca por nome.
+      parameters:
+        - in: query
+          name: uf
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+          description: Filtra por estado (ex. PE, SP)
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Busca parcial por nome do município (ex. "recife", "são paulo")
+      responses:
+        '200':
+          description: Lista de municípios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                code: "OK"
+                data:
+                  - id: 2611606
+                    nome: "Recife"
+                    microrregiao:
+                      id: 26017
+                      nome: "Recife"
+                      mesorregiao:
+                        id: 2605
+                        nome: "Metropolitana de Recife"
+                        UF:
+                          id: 26
+                          sigla: "PE"
+                          nome: "Pernambuco"
+                          regiao:
+                            id: 2
+                            sigla: "NE"
+                            nome: "Nordeste"
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /geo/municipios/{uf}:
+    get:
+      tags: [GEO]
+      summary: Lista municípios de um estado
+      description: Retorna todos os municípios de um estado específico
+      parameters:
+        - in: path
+          name: uf
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+          description: Sigla do estado (ex. PE, SP, RJ)
+      responses:
+        '200':
+          description: Lista de municípios do estado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /geo/municipios/id/{id}:
+    get:
+      tags: [GEO]
+      summary: Busca município por código IBGE
+      description: Retorna informações de um município específico pelo seu código IBGE
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Código IBGE do município (ex. 2611606 para Recife)
+      responses:
+        '200':
+          description: Município encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Município não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erro interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     Tenant:
@@ -284,6 +482,88 @@ components:
         updatedAt: 
           type: string
           format: date-time
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: "OK"
+        data:
+          type: object
+          description: Dados da resposta
+        meta:
+          type: object
+          description: Metadados opcionais
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "https://retech-core/errors/not-found"
+        title:
+          type: string
+          example: "Not Found"
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: "Recurso não encontrado"
+        instance:
+          type: string
+          example: "/geo/ufs/XX"
+        traceId:
+          type: string
+          description: ID de rastreamento da requisição
+    Estado:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID do IBGE
+          example: 26
+        sigla:
+          type: string
+          description: Sigla do estado
+          example: "PE"
+        nome:
+          type: string
+          description: Nome do estado
+          example: "Pernambuco"
+        regiao:
+          $ref: '#/components/schemas/Regiao'
+    Regiao:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2
+        sigla:
+          type: string
+          example: "NE"
+        nome:
+          type: string
+          example: "Nordeste"
+    Municipio:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Código IBGE do município
+          example: 2611606
+        nome:
+          type: string
+          description: Nome do município
+          example: "Recife"
+        microrregiao:
+          type: object
+          description: Microrregião do IBGE
+        regiao-imediata:
+          type: object
+          description: Região imediata (nova divisão IBGE)
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

@@ -12,6 +12,7 @@ import (
 )
 
 func NewRouter(log zerolog.Logger, health *handlers.HealthHandler, apikeys *storage.APIKeysRepo, tenants *storage.TenantsRepo,
+	estados *storage.EstadosRepo, municipios *storage.MunicipiosRepo,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -67,6 +68,14 @@ func NewRouter(log zerolog.Logger, health *handlers.HealthHandler, apikeys *stor
 	r.GET("/protected/apikey", auth.AuthAPIKey(apikeys), func(c *gin.Context) {
 		c.JSON(200, gin.H{"ok": true})
 	})
+
+	// GEO endpoints
+	geo := handlers.NewGeoHandler(estados, municipios)
+	r.GET("/geo/ufs", geo.ListUFs)                      // Lista todos os estados (com filtro ?q=)
+	r.GET("/geo/ufs/:sigla", geo.GetUF)                 // Busca estado por sigla
+	r.GET("/geo/municipios", geo.ListMunicipios)        // Lista municípios (com filtro ?uf= e ?q=)
+	r.GET("/geo/municipios/:uf", geo.ListMunicipiosByUF) // Lista municípios por UF
+	r.GET("/geo/municipios/id/:id", geo.GetMunicipio)   // Busca município por ID do IBGE
 
 	return r
 }

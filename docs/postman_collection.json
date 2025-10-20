@@ -1,0 +1,655 @@
+{
+	"info": {
+		"_postman_id": "retech-core-api-2025",
+		"name": "Retech Core API - Complete",
+		"description": "Collection completa da API Retech Core com endpoints de GEO, Tenants e API Keys",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "retech-core"
+	},
+	"item": [
+		{
+			"name": "0. Infra",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Verifica a saúde da aplicação e conexão com MongoDB"
+					}
+				},
+				{
+					"name": "Version",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/version",
+							"host": ["{{base_url}}"],
+							"path": ["version"]
+						},
+						"description": "Retorna informações sobre a versão da API"
+					}
+				},
+				{
+					"name": "Docs (Redoc HTML)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/docs",
+							"host": ["{{base_url}}"],
+							"path": ["docs"]
+						},
+						"description": "Interface Redoc da documentação OpenAPI"
+					}
+				},
+				{
+					"name": "OpenAPI YAML",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/openapi.yaml",
+							"host": ["{{base_url}}"],
+							"path": ["openapi.yaml"]
+						},
+						"description": "Especificação OpenAPI em formato YAML"
+					}
+				}
+			],
+			"description": "Endpoints de infraestrutura e informações da API"
+		},
+		{
+			"name": "1. GEO - Estados",
+			"item": [
+				{
+					"name": "Listar Todos os Estados",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs"]
+						},
+						"description": "Lista todos os 27 estados brasileiros com suas regiões"
+					}
+				},
+				{
+					"name": "Buscar Estados (filtro)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs?q=pernambuco",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs"],
+							"query": [
+								{
+									"key": "q",
+									"value": "pernambuco",
+									"description": "Busca parcial por nome ou sigla"
+								}
+							]
+						},
+						"description": "Busca estados por nome ou sigla (parcial, case-insensitive)"
+					}
+				},
+				{
+					"name": "Buscar Estado por Sigla - PE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs/PE",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs", "PE"]
+						},
+						"description": "Retorna informações do estado de Pernambuco"
+					}
+				},
+				{
+					"name": "Buscar Estado por Sigla - SP",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs/SP",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs", "SP"]
+						},
+						"description": "Retorna informações do estado de São Paulo"
+					}
+				},
+				{
+					"name": "Buscar Estado por Sigla - RJ",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs/RJ",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs", "RJ"]
+						},
+						"description": "Retorna informações do estado do Rio de Janeiro"
+					}
+				}
+			],
+			"description": "Endpoints para consulta de estados brasileiros (UFs)"
+		},
+		{
+			"name": "2. GEO - Municípios",
+			"item": [
+				{
+					"name": "Listar Municípios de PE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/PE",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "PE"]
+						},
+						"description": "Lista todos os municípios de Pernambuco (185 municípios)"
+					}
+				},
+				{
+					"name": "Listar Municípios de SP",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/SP",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "SP"]
+						},
+						"description": "Lista todos os municípios de São Paulo (645 municípios)"
+					}
+				},
+				{
+					"name": "Buscar Municípios por Nome - Recife",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios?uf=PE&q=recife",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios"],
+							"query": [
+								{
+									"key": "uf",
+									"value": "PE",
+									"description": "Filtro por estado"
+								},
+								{
+									"key": "q",
+									"value": "recife",
+									"description": "Busca por nome"
+								}
+							]
+						},
+						"description": "Busca municípios de PE que contenham 'recife' no nome"
+					}
+				},
+				{
+					"name": "Buscar Municípios por Nome - São Paulo",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios?uf=SP&q=são paulo",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios"],
+							"query": [
+								{
+									"key": "uf",
+									"value": "SP"
+								},
+								{
+									"key": "q",
+									"value": "são paulo"
+								}
+							]
+						},
+						"description": "Busca municípios de SP que contenham 'são paulo' no nome"
+					}
+				},
+				{
+					"name": "Buscar por Nome (sem filtro UF)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios?q=santos",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios"],
+							"query": [
+								{
+									"key": "q",
+									"value": "santos",
+									"description": "Busca em todos os estados"
+								}
+							]
+						},
+						"description": "Busca municípios em todo Brasil que contenham 'santos' no nome (limite: 100 resultados)"
+					}
+				},
+				{
+					"name": "Buscar Município por Código IBGE - Recife",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/id/2611606",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "id", "2611606"]
+						},
+						"description": "Busca Recife pelo seu código IBGE (2611606)"
+					}
+				},
+				{
+					"name": "Buscar Município por Código IBGE - São Paulo",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/id/3550308",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "id", "3550308"]
+						},
+						"description": "Busca São Paulo (capital) pelo seu código IBGE (3550308)"
+					}
+				},
+				{
+					"name": "Buscar Município por Código IBGE - Rio de Janeiro",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/id/3304557",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "id", "3304557"]
+						},
+						"description": "Busca Rio de Janeiro (capital) pelo seu código IBGE (3304557)"
+					}
+				},
+				{
+					"name": "Listar Municípios com Filtro por UF (query param)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios?uf=RS",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios"],
+							"query": [
+								{
+									"key": "uf",
+									"value": "RS"
+								}
+							]
+						},
+						"description": "Lista municípios do Rio Grande do Sul usando query param"
+					}
+				}
+			],
+			"description": "Endpoints para consulta de municípios brasileiros"
+		},
+		{
+			"name": "3. Tenants",
+			"item": [
+				{
+					"name": "Criar Tenant",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tenantId\": \"empresa-exemplo\",\n  \"name\": \"Empresa Exemplo LTDA\",\n  \"email\": \"contato@exemplo.com\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tenants",
+							"host": ["{{base_url}}"],
+							"path": ["tenants"]
+						},
+						"description": "Cria um novo tenant no sistema"
+					}
+				},
+				{
+					"name": "Listar Tenants",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/tenants",
+							"host": ["{{base_url}}"],
+							"path": ["tenants"]
+						},
+						"description": "Lista todos os tenants cadastrados"
+					}
+				},
+				{
+					"name": "Buscar Tenant por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/tenants/{{tenant_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["tenants", "{{tenant_id}}"]
+						},
+						"description": "Busca um tenant específico pelo ID"
+					}
+				},
+				{
+					"name": "Atualizar Tenant",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Empresa Exemplo LTDA - Atualizada\",\n  \"email\": \"novo@exemplo.com\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tenants/{{tenant_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["tenants", "{{tenant_id}}"]
+						},
+						"description": "Atualiza informações de um tenant"
+					}
+				},
+				{
+					"name": "Deletar Tenant",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/tenants/{{tenant_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["tenants", "{{tenant_id}}"]
+						},
+						"description": "Remove um tenant do sistema"
+					}
+				}
+			],
+			"description": "Gestão de tenants (clientes) do sistema"
+		},
+		{
+			"name": "4. API Keys",
+			"item": [
+				{
+					"name": "Criar API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Salva a API key retornada para uso em outras requisições",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.key) {",
+									"        pm.environment.set(\"api_key\", response.key);",
+									"        console.log(\"API Key salva:\", response.key);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tenantId\": \"empresa-exemplo\",\n  \"name\": \"Chave de Produção\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/apikeys",
+							"host": ["{{base_url}}"],
+							"path": ["apikeys"]
+						},
+						"description": "Cria uma nova API key para um tenant. A chave retornada será salva automaticamente na variável de ambiente 'api_key'."
+					}
+				},
+				{
+					"name": "Testar Endpoint Protegido",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{api_key}}",
+								"description": "API Key"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/protected/apikey",
+							"host": ["{{base_url}}"],
+							"path": ["protected", "apikey"]
+						},
+						"description": "Testa autenticação com API Key em endpoint protegido"
+					}
+				},
+				{
+					"name": "Rotacionar API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Atualiza com a nova API key",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.key) {",
+									"        pm.environment.set(\"api_key\", response.key);",
+									"        console.log(\"Nova API Key salva:\", response.key);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tenantId\": \"empresa-exemplo\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/apikeys/refresh",
+							"host": ["{{base_url}}"],
+							"path": ["apikeys", "refresh"]
+						},
+						"description": "Rotaciona (troca) uma API key existente por uma nova"
+					}
+				},
+				{
+					"name": "Revogar API Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"keyId\": \"{{key_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/apikeys/revoke",
+							"host": ["{{base_url}}"],
+							"path": ["apikeys", "revoke"]
+						},
+						"description": "Revoga (desativa) uma API key"
+					}
+				}
+			],
+			"description": "Gestão de API Keys para autenticação"
+		},
+		{
+			"name": "5. Exemplos de Casos de Uso",
+			"item": [
+				{
+					"name": "Caso 1: Listar Estados do Nordeste",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/ufs?q=NE",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "ufs"],
+							"query": [
+								{
+									"key": "q",
+									"value": "NE"
+								}
+							]
+						},
+						"description": "Busca todos os estados que têm 'NE' (Nordeste)"
+					}
+				},
+				{
+					"name": "Caso 2: Listar Cidades do Interior de PE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/PE",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "PE"]
+						},
+						"description": "Lista todos os 185 municípios de Pernambuco"
+					}
+				},
+				{
+					"name": "Caso 3: Buscar Todas as Cidades chamadas 'Santa'",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios?q=santa",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios"],
+							"query": [
+								{
+									"key": "q",
+									"value": "santa"
+								}
+							]
+						},
+						"description": "Busca em todo Brasil municípios com 'santa' no nome (limite: 100)"
+					}
+				},
+				{
+					"name": "Caso 4: Setup Completo (Tenant + API Key)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tenantId\": \"cliente-novo\",\n  \"name\": \"Cliente Novo LTDA\",\n  \"email\": \"contato@clientenovo.com\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tenants",
+							"host": ["{{base_url}}"],
+							"path": ["tenants"]
+						},
+						"description": "Passo 1: Criar o tenant antes de criar API Key"
+					}
+				},
+				{
+					"name": "Caso 5: Validar Dados de Endereço",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/geo/municipios/id/2611606",
+							"host": ["{{base_url}}"],
+							"path": ["geo", "municipios", "id", "2611606"]
+						},
+						"description": "Valida se o código IBGE 2611606 corresponde a Recife/PE"
+					}
+				}
+			],
+			"description": "Exemplos práticos de uso da API em cenários reais"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "tenant_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "key_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

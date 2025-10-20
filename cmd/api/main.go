@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/theretech/retech-core/internal/bootstrap"
 	"github.com/theretech/retech-core/internal/config"
 	nethttp "github.com/theretech/retech-core/internal/http"
 	"github.com/theretech/retech-core/internal/http/handlers"
@@ -21,13 +24,31 @@ func main() {
 		log.Fatal().Err(err).Msg("mongo_connect_error")
 	}
 
+	// Executar migrations/seeds
+	log.Info().Msg("Executando migrations e seeds...")
+	migrationManager := bootstrap.NewMigrationManager(m.DB, log)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	if err := migrationManager.Run(ctx); err != nil {
+		log.Fatal().Err(err).Msg("migration_error")
+	}
+	log.Info().Msg("Migrations concluídas com sucesso")
+
+	// Criar índices
+	if err := bootstrap.CreateIndexes(ctx, m.DB, log); err != nil {
+		log.Warn().Err(err).Msg("index_creation_warning")
+	}
+
 	// Repos
 	tenants := storage.NewTenantsRepo(m.DB)
 	apikeys := storage.NewAPIKeysRepo(m.DB)
+	estados := storage.NewEstadosRepo(m.DB)
+	municipios := storage.NewMunicipiosRepo(m.DB)
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, health, apikeys, tenants)
+	router := nethttp.NewRouter(log, health, apikeys, tenants, estados, municipios)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,

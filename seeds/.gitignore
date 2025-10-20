@@ -1,0 +1,11 @@
+# Para desenvolvimento local: ignorar JSONs grandes
+# Para Railway/Produção: COMENTAR estas linhas e commitar os JSONs
+
+# DESCOMENTAR para desenvolvimento local (não commitar seeds):
+# *.json
+
+# COMENTAR as linhas acima para Railway (commitar seeds na imagem Docker)
+
+# Manter o diretório
+!.gitkeep
+

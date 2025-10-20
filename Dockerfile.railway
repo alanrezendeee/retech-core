@@ -1,0 +1,60 @@
+# Dockerfile para Railway - Com seeds embedados
+# Este Dockerfile é otimizado para produção e inclui os seeds na imagem
+
+# Build stage
+FROM golang:1.22-alpine AS build
+
+WORKDIR /src
+
+# Instalar dependências de build
+RUN apk add --no-cache git ca-certificates
+
+# Copiar go.mod e go.sum primeiro (melhor cache)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copiar código fonte
+COPY . .
+
+# Build do binário
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /out/retech-core ./cmd/api
+
+# Runtime stage
+FROM alpine:3.19
+
+# Instalar certificados SSL (necessário para MongoDB Atlas)
+RUN apk add --no-cache ca-certificates tzdata
+
+# Criar usuário não-root
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+WORKDIR /app
+
+# Copiar binário
+COPY --from=build /out/retech-core /app/retech-core
+
+# Copiar documentação OpenAPI
+COPY --from=build /src/internal/docs /app/internal/docs
+
+# Copiar seeds (IMPORTANTE: embedar na imagem para Railway)
+COPY seeds/estados.json /app/seeds/estados.json
+COPY seeds/municipios.json /app/seeds/municipios.json
+
+# Definir permissões
+RUN chown -R appuser:appuser /app && \
+    chmod +x /app/retech-core
+
+# Usar usuário não-root
+USER appuser
+
+# Expor porta
+EXPOSE 8080
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+# Executar aplicação
+ENTRYPOINT ["/app/retech-core"]
+

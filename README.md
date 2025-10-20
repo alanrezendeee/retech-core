@@ -98,133 +98,327 @@ retech-core/
 
 ---
 
-## 🚀 Endpoints propostos (v1)
+## 🚀 Endpoints implementados (v1)
 
 ### 0) Infra
 
-* `GET /health` → { status: "ok", uptime }
-* `GET /version` → { name, version, commit, buildDate }
-* `GET /docs` → Swagger UI / Redoc
-* `GET /metrics` → Prometheus
+* ✅ `GET /health` → Verifica saúde da aplicação e conexão com MongoDB
+* ✅ `GET /version` → Retorna versão da API
+* ✅ `GET /docs` → Documentação HTML (Redoc)
+* ✅ `GET /openapi.yaml` → Especificação OpenAPI
 
-### 1) GEO (Estados, Municípios, RA-DF)
+### 1) Tenants
 
-* `GET /geo/ufs`
-  **Query**: `q` (opcional, busca parcial client-side: o serviço pode retornar todos e filtrar)
-  **Resposta** (normalizada):
+* ✅ `POST /tenants` → Criar tenant
+* ✅ `GET /tenants` → Listar tenants
+* ✅ `GET /tenants/:id` → Buscar tenant por ID
+* ✅ `PUT /tenants/:id` → Atualizar tenant
+* ✅ `DELETE /tenants/:id` → Remover tenant
+
+### 2) API Keys
+
+* ✅ `POST /apikeys` → Criar API key
+* ✅ `POST /apikeys/revoke` → Revogar API key
+* ✅ `POST /apikeys/refresh` → Rotacionar API key
+
+### 3) GEO (Estados e Municípios)
+
+* ✅ `GET /geo/ufs` → Lista todos os estados
+  **Query**: `q` (opcional, busca parcial por nome ou sigla)
+  **Resposta**:
 
   ```json
-  [{ "id": 26, "sigla": "PE", "nome": "Pernambuco", "regiao": {"sigla": "NE", "nome": "Nordeste"} }]
+  {
+    "success": true,
+    "code": "OK",
+    "data": [
+      {
+        "id": 26,
+        "sigla": "PE",
+        "nome": "Pernambuco",
+        "regiao": {
+          "id": 2,
+          "sigla": "NE",
+          "nome": "Nordeste"
+        }
+      }
+    ]
+  }
   ```
 
-  **Fonte**: IBGE `/localidades/estados` (com cache).
+  **Fonte**: Seed local baseado em dados do IBGE.
 
-* `GET /geo/municipios/{uf}`
-  **Resposta**: array de municípios (id, nome, microrregião, mesorregião opcional).
-  **Fonte**: IBGE `/localidades/estados/{UF}/municipios` (cache).
+* ✅ `GET /geo/ufs/:sigla` → Busca estado específico pela sigla
+  **Exemplo**: `/geo/ufs/PE`
 
-* `GET /geo/df/ras`
-  **Resposta**: 33 Regiões Administrativas do DF (id simbólico, nome, sigla RA, bbox opcional).
-  **Fonte**: dataset próprio (seed baseado em GDF) versionado no repo; opção de cliente GDF.
+* ✅ `GET /geo/municipios` → Lista todos os municípios
+  **Query**: 
+  - `uf` (opcional, filtra por estado)
+  - `q` (opcional, busca por nome)
+  
+  **Exemplo**: `/geo/municipios?uf=PE&q=recife`
 
-### 2) CEP
+* ✅ `GET /geo/municipios/:uf` → Lista municípios de um estado
+  **Exemplo**: `/geo/municipios/PE`
+  **Resposta**: array de municípios com id (IBGE), nome, microrregião, mesorregião e região imediata/intermediária.
 
-* `GET /cep/{cep}`
-  **Resposta** (normalizada): logradouro, bairro, cidade, UF, IBGE, lat/lng (quando disponível).
+* ✅ `GET /geo/municipios/id/:id` → Busca município pelo código IBGE
+  **Exemplo**: `/geo/municipios/id/2611606` (Recife)
+
+---
+
+## 📋 Endpoints planejados (futuro)
+
+### CEP
+
+* `GET /cep/{cep}` → Busca informações de CEP
   **Fonte** primária: BrasilAPI. **Fallback**: ViaCEP. **Cache** agressivo (7–30d).
 
-### 3) Documentos & utilidades
+### Documentos & utilidades
 
-* `POST /utils/cpf/validate`
-  **Body**: `{ "cpf": "00000000191" }` → `{ "valid": true }` (offline, sem upstream)
-* `POST /utils/cnpj/validate`
-  **Body**: `{ "cnpj": "11222333000181" }` → `{ "valid": true }`
-* `POST /utils/phone/format`
-  **Body**: `{ "phone": "+55 (48) 99999-6679" }` → `{ "e164": "+554899996679", "national": "(48) 99996-6679" }`
-* `POST /utils/slugify`
-  **Body**: `{ "text": "Sudoeste / Octogonal" }` → `{ "slug": "sudoeste-octogonal" }`
+* `POST /utils/cpf/validate` → Validar CPF (offline)
+* `POST /utils/cnpj/validate` → Validar CNPJ (offline)
+* `POST /utils/phone/format` → Formatar telefone brasileiro
+* `POST /utils/slugify` → Gerar slug a partir de texto
 
-### 4) Negócio (dados abertos úteis)
+### Negócio
 
-* `GET /biz/bancos`
-  Lista bancos ativos (código, nome). **Fonte**: BrasilAPI / Bacen (cache 24h).
-* `GET /biz/feriados/{ano}`
-  Feriados nacionais (e opcional `?uf=SC`). **Fonte**: BrasilAPI / Nager.Date (cache 24h).
+* `GET /biz/bancos` → Lista bancos ativos (código, nome)
+* `GET /biz/feriados/{ano}` → Feriados nacionais e por UF
+
+### GEO Avançado
+
+* `GET /geo/df/ras` → Regiões Administrativas do DF (33 RAs)
+
+---
+
+## 📮 Testando com Postman
+
+Uma **collection completa do Postman** está disponível para facilitar os testes:
+
+- 📁 `postman_collection.json` - Collection com todos os endpoints
+- 🌍 `postman_environment.json` - Environment pré-configurado para localhost
+- 📖 [POSTMAN.md](POSTMAN.md) - Guia completo de uso
+
+### Features da Collection:
+
+- ✅ **50+ requisições** organizadas por categoria
+- ✅ **Auto-save de API Keys** - Scripts automáticos salvam keys nas variáveis
+- ✅ **Exemplos de casos de uso** reais
+- ✅ **Documentação inline** em cada requisição
+- ✅ **Environment pré-configurado** para desenvolvimento local
+
+[👉 Ver guia completo do Postman](POSTMAN.md)
 
 ---
 
 ## 🧰 Exemplo de uso (cURL)
 
 ```bash
-# Estados
-curl -s 'https://api.retech-core.com/v1/geo/ufs' | jq
+# Health check
+curl -s 'http://localhost:8080/health' | jq
 
-# Municípios por UF
-curl -s 'https://api.retech-core.com/v1/geo/municipios/PE' | jq
+# Versão da API
+curl -s 'http://localhost:8080/version' | jq
 
-# Regiões Administrativas do DF
-curl -s 'https://api.retech-core.com/v1/geo/df/ras' | jq
+# Listar todos os estados
+curl -s 'http://localhost:8080/geo/ufs' | jq
 
-# CEP
-curl -s 'https://api.retech-core.com/v1/cep/88160116' | jq
+# Buscar estado específico
+curl -s 'http://localhost:8080/geo/ufs/PE' | jq
 
-# Validar CNPJ
-curl -s -X POST 'https://api.retech-core.com/v1/utils/cnpj/validate' \
+# Buscar estados (filtro)
+curl -s 'http://localhost:8080/geo/ufs?q=pernambuco' | jq
+
+# Listar municípios de um estado
+curl -s 'http://localhost:8080/geo/municipios/PE' | jq
+
+# Buscar municípios por nome
+curl -s 'http://localhost:8080/geo/municipios?uf=PE&q=recife' | jq
+
+# Buscar município por código IBGE
+curl -s 'http://localhost:8080/geo/municipios/id/2611606' | jq
+
+# Criar tenant
+curl -X POST 'http://localhost:8080/tenants' \
   -H 'Content-Type: application/json' \
-  -d '{"cnpj":"11222333000181"}' | jq
+  -d '{"tenantId":"cliente-1","name":"Cliente Exemplo","email":"contato@exemplo.com","active":true}' | jq
+
+# Criar API key
+curl -X POST 'http://localhost:8080/apikeys' \
+  -H 'Content-Type: application/json' \
+  -d '{"tenantId":"cliente-1","name":"Chave Producao"}' | jq
 ```
 
 ---
 
-## 🧪 Contratos (OpenAPI sketch)
+## 🧪 Contratos (OpenAPI)
+
+A documentação completa está disponível em:
+- `/docs` - Interface Redoc
+- `/openapi.yaml` - Especificação OpenAPI
+
+### Exemplo de schema de resposta
 
 ```yaml
-openapi: 3.1.0
-info:
-  title: retech-core API
-  version: 1.0.0
-servers:
-  - url: https://api.retech-core.com/v1
-paths:
-  /geo/ufs:
-    get:
-      summary: Lista UFs
-      parameters:
-        - in: query
-          name: q
-          schema: { type: string }
-      responses:
-        '200':
-          description: OK
-  /geo/municipios/{uf}:
-    get:
-      parameters:
-        - in: path
-          name: uf
-          required: true
-          schema: { type: string, minLength: 2, maxLength: 2 }
-      responses:
-        '200': { description: OK }
+# Resposta de sucesso
+SuccessResponse:
+  type: object
+  properties:
+    success:
+      type: boolean
+      example: true
+    code:
+      type: string
+      example: "OK"
+    data:
+      type: object
+    meta:
+      type: object
+
+# Resposta de erro (RFC 7807)
+ErrorResponse:
+  type: object
+  properties:
+    type:
+      type: string
+      example: "https://retech-core/errors/not-found"
+    title:
+      type: string
+      example: "Not Found"
+    status:
+      type: integer
+      example: 404
+    detail:
+      type: string
+      example: "Estado não encontrado"
+    instance:
+      type: string
+      example: "/geo/ufs/XX"
+    traceId:
+      type: string
 ```
 
 ---
 
 ## ⚙️ Configuração (ENV)
 
+```bash
+# Servidor
+PORT=8080                              # Porta HTTP (padrão: 8080)
+ENV=development                        # Ambiente: development | production
+
+# MongoDB
+MONGO_URI=mongodb://localhost:27017    # URI de conexão MongoDB
+MONGO_DB=retech_core                   # Nome do banco de dados
+
+# CORS
+CORS_ENABLE=true                       # Habilita CORS (padrão: true)
 ```
+
+### Exemplo de .env
+
+```bash
 PORT=8080
-ENV=production
-API_KEY_REQUIRED=true
-REDIS_URL=redis://localhost:6379
-CACHE_TTL_SECONDS=3600
-UPSTREAM_TIMEOUT_MS=5000
-RATE_LIMIT_RPS=10
-CORS_ORIGINS=https://*.theretech.com,https://*.brbit.com
+ENV=development
+MONGO_URI=mongodb://mongo:27017
+MONGO_DB=retech_core
+CORS_ENABLE=true
 ```
 
 ---
 
-## 🐳 Deploy (Docker)
+## 💾 Migrations e Seeds
+
+O sistema possui um gerenciador de migrations que executa automaticamente na inicialização da aplicação.
+
+### Como funciona
+
+1. Na inicialização, o sistema verifica quais migrations ainda não foram executadas
+2. Executa as migrations pendentes em ordem
+3. Registra cada migration executada na collection `migrations`
+4. Seeds de estados e municípios são carregados automaticamente se não existirem
+
+### Estrutura de dados
+
+#### Estados (27 UFs)
+- Seed: `seeds/estados.json`
+- Collection: `estados`
+- Total: 27 registros
+- Fonte: IBGE
+
+#### Municípios (5570 municípios)
+- Seed: `seeds/municipios.json`
+- Collection: `municipios`
+- Total: 5570 registros
+- Fonte: IBGE
+
+### Localização dos arquivos de seed
+
+O sistema busca os arquivos JSON nas seguintes localizações:
+1. `seeds/` (recomendado)
+2. `~/Downloads/` (conveniente para desenvolvimento)
+3. `data/`
+4. Raiz do projeto
+
+### Re-executar seeds
+
+Para re-executar os seeds:
+
+```bash
+# Conectar ao MongoDB
+mongo retech_core
+
+# Remover registros de migration
+db.migrations.deleteOne({version: "001_seed_estados"})
+db.migrations.deleteOne({version: "002_seed_municipios"})
+
+# Limpar dados (opcional)
+db.estados.deleteMany({})
+db.municipios.deleteMany({})
+
+# Reiniciar a aplicação
+```
+
+---
+
+## 🚀 Deploy em Produção
+
+### Railway (Recomendado) 🚂
+
+Deploy simplificado com MongoDB gerenciado e CI/CD automático:
+
+- ✅ **Deploy automático** via Git push
+- ✅ **MongoDB incluído** (ou use MongoDB Atlas)
+- ✅ **Seeds automáticos** na primeira execução
+- ✅ **HTTPS grátis** e domínio customizável
+- ✅ **Logs em tempo real**
+- ✅ **Free tier disponível**
+
+[👉 Ver guia completo de deploy no Railway](RAILWAY_DEPLOY.md)
+
+**Quick Start:**
+```bash
+# 1. Verificar se está pronto
+./railway-check.sh
+
+# 2. Commit seeds
+git add seeds/*.json
+git commit -m "chore: adicionar seeds para produção"
+git push origin main
+
+# 3. Deploy no Railway (via dashboard ou CLI)
+railway up
+```
+
+**Arquivos de configuração:**
+- `Dockerfile.railway` - Dockerfile otimizado para produção
+- `railway.json` / `railway.toml` - Configuração Railway
+- `railway.env.example` - Variáveis de ambiente
+
+---
+
+## 🐳 Deploy (Docker Local)
 
 **Dockerfile (Go)**
 
@@ -268,13 +462,41 @@ services:
 
 ---
 
-## 🗺️ Roadmap (sugestão)
+## 🗺️ Roadmap
 
-* [ ] `/geo/municipios/{uf}/search?q=` (filtro local com índice em memória)
-* [ ] `/biz/cnaes` e `/biz/naturesa-juridica` (catálogos públicos)
-* [ ] `/utils/coordinates/geocode` (Nominatim, com rate-limit estrito)
-* [ ] **Bulk** endpoints (`/geo/municipios/bulk`)
-* [ ] **Webhooks** para cache-invalidation de listas estáticas
+### ✅ Implementado
+
+* [x] Sistema de migrations/seeds automático
+* [x] Endpoints de estados (UFs) com busca
+* [x] Endpoints de municípios com filtros por UF e nome
+* [x] Gestão de tenants e API keys
+* [x] Health check e versão
+* [x] Documentação OpenAPI/Redoc
+* [x] Índices MongoDB para performance
+
+### 🚧 Em planejamento
+
+#### Curto prazo
+* [ ] Cache com Redis (estados e municípios)
+* [ ] Rate limiting por API key
+* [ ] Endpoints de CEP (integração BrasilAPI + ViaCEP)
+* [ ] Middleware de autenticação obrigatória em rotas protegidas
+
+#### Médio prazo
+* [ ] Validadores de CPF/CNPJ (offline)
+* [ ] Formatador de telefone brasileiro
+* [ ] Utilidades (slugify, normalização)
+* [ ] Endpoints de bancos (Bacen)
+* [ ] Feriados nacionais e por UF
+
+#### Longo prazo
+* [ ] Regiões Administrativas do DF (33 RAs)
+* [ ] CNAEs e naturezas jurídicas
+* [ ] Geocoding (Nominatim, rate-limit estrito)
+* [ ] Endpoints bulk para grandes volumes
+* [ ] Webhooks para invalidação de cache
+* [ ] Prometheus metrics
+* [ ] OpenTelemetry traces
 
 ---
 
@@ -284,7 +506,74 @@ Definir conforme política interna (MIT/Proprietária).
 
 ---
 
-### Notas finais
+---
 
-* Para **RAs do DF**, manter **seed estático** versionado (fonte: GDF) e opcionalmente cliente para atualização periódica.
-* Para **UF q=**, como o IBGE não filtra de forma confiável, retornar todos e aplicar **filtro local** (normalizado p/ acentuação).
+## 📚 Estrutura do projeto
+
+```
+retech-core/
+├── cmd/api/
+│   └── main.go                    # Ponto de entrada da aplicação
+├── internal/
+│   ├── auth/                      # Middleware de autenticação
+│   ├── bootstrap/
+│   │   ├── indexes.go             # Criação de índices MongoDB
+│   │   └── migrations.go          # Sistema de migrations/seeds
+│   ├── config/
+│   │   └── config.go              # Configurações (env vars)
+│   ├── domain/
+│   │   ├── apikey.go              # Modelo de API Keys
+│   │   ├── estado.go              # Modelo de Estados
+│   │   ├── municipio.go           # Modelo de Municípios
+│   │   └── tenant.go              # Modelo de Tenants
+│   ├── http/
+│   │   ├── handlers/
+│   │   │   ├── apikey.go          # Handlers de API keys
+│   │   │   ├── geo.go             # Handlers de GEO (estados/municípios)
+│   │   │   ├── health.go          # Health check
+│   │   │   ├── tenant.go          # Handlers de tenants
+│   │   │   └── version.go         # Versão da API
+│   │   └── router.go              # Configuração de rotas
+│   ├── middleware/                # Middlewares HTTP
+│   ├── observability/
+│   │   └── logger.go              # Logger estruturado (zerolog)
+│   └── storage/
+│       ├── apikeys_repo.go        # Repositório de API Keys
+│       ├── estados_repo.go        # Repositório de Estados
+│       ├── mongo.go               # Cliente MongoDB
+│       ├── municipios_repo.go     # Repositório de Municípios
+│       └── tenants_repo.go        # Repositório de Tenants
+├── seeds/
+│   ├── estados.json               # Seed de estados (27 UFs)
+│   └── municipios.json            # Seed de municípios (5570)
+├── build/
+│   ├── Dockerfile                 # Dockerfile de produção
+│   └── docker-compose.yml         # Compose para desenvolvimento
+└── go.mod                         # Dependências Go
+```
+
+---
+
+## 📝 Notas de implementação
+
+### Estados e Municípios
+* Dados carregados via **seed automático** na inicialização
+* Seeds baseados em dados oficiais do IBGE
+* Sistema de migrations garante que seeds rodem apenas uma vez
+* Índices MongoDB otimizam buscas por ID, sigla e nome
+* Busca por nome implementada como **filtro local** (case-insensitive)
+
+### Tenants e API Keys
+* Sistema multi-tenant implementado
+* API Keys com suporte a rotação e revogação
+* Cada API key vinculada a um tenant específico
+
+### Observabilidade
+* Logs estruturados com zerolog
+* Health check integrado com MongoDB
+* Versão da API exposta via endpoint
+
+### Performance
+* Índices únicos: estados (id, sigla), municípios (id)
+* Índices de busca: municípios (nome, UF)
+* Seeds carregados em lotes de 1000 para otimizar memória
