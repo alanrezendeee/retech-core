@@ -7,7 +7,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/theretech/retech-core/internal/auth"
-	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/http/handlers"
 	"github.com/theretech/retech-core/internal/middleware"
 	"github.com/theretech/retech-core/internal/storage"
@@ -22,6 +21,7 @@ func NewRouter(
 	users *storage.UsersRepo,
 	estados *storage.EstadosRepo,
 	municipios *storage.MunicipiosRepo,
+	settings *storage.SettingsRepo,
 	jwtService *auth.JWTService,
 ) *gin.Engine {
 	r := gin.New()
@@ -36,12 +36,12 @@ func NewRouter(
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
 		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Max-Age", "86400")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -53,7 +53,7 @@ func NewRouter(
 	})
 
 	// Middlewares globais
-	rateLimiter := middleware.NewRateLimiter(m.DB, domain.GetDefaultRateLimit())
+	rateLimiter := middleware.NewRateLimiter(m.DB, tenants, settings)
 	usageLogger := middleware.NewUsageLogger(m.DB)
 
 	// Rotas públicas (sem autenticação)
@@ -110,6 +110,11 @@ func NewRouter(
 		// Analytics (admin only)
 		adminGroup.GET("/stats", adminHandler.GetStats)
 		adminGroup.GET("/usage", adminHandler.GetUsage)
+
+		// Settings (admin only)
+		settingsHandler := handlers.NewSettingsHandler(settings)
+		adminGroup.GET("/settings", settingsHandler.Get)
+		adminGroup.PUT("/settings", settingsHandler.Update)
 	}
 
 	// Tenant endpoints (protegidos por JWT + role TENANT_USER)

@@ -10,6 +10,10 @@ type Tenant struct {
 	Company   string    `bson:"company,omitempty" json:"company,omitempty"`   // Nome da empresa
 	Purpose   string    `bson:"purpose,omitempty" json:"purpose,omitempty"`   // Finalidade de uso
 	Active    bool      `bson:"active" json:"active"`             // Tenant ativo?
+	
+	// Rate Limiting personalizado (opcional - se nil, usa o padrão do sistema)
+	RateLimit *RateLimitConfig `bson:"rateLimit,omitempty" json:"rateLimit,omitempty"`
+	
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 }

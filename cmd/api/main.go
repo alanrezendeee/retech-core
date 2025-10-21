@@ -48,6 +48,14 @@ func main() {
 	estados := storage.NewEstadosRepo(m.DB)
 	municipios := storage.NewMunicipiosRepo(m.DB)
 
+	// Settings
+	settings := storage.NewSettingsRepo(m.DB)
+	
+	// Garantir que configurações padrão existam
+	if err := settings.Ensure(context.Background()); err != nil {
+		log.Warn().Err(err).Msg("failed to ensure default settings")
+	}
+
 	// JWT Service
 	jwtService := auth.NewJWTService(
 		cfg.JWTAccessSecret,
@@ -58,7 +66,7 @@ func main() {
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, jwtService)
+	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, settings, jwtService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,

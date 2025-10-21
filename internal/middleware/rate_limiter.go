@@ -8,20 +8,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
+	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type RateLimiter struct {
-	db     *mongo.Database
-	config domain.RateLimitConfig
+	db       *mongo.Database
+	tenants  *storage.TenantsRepo
+	settings *storage.SettingsRepo
 }
 
-func NewRateLimiter(db *mongo.Database, config domain.RateLimitConfig) *RateLimiter {
+func NewRateLimiter(db *mongo.Database, tenants *storage.TenantsRepo, settings *storage.SettingsRepo) *RateLimiter {
 	return &RateLimiter{
-		db:     db,
-		config: config,
+		db:       db,
+		tenants:  tenants,
+		settings: settings,
 	}
 }
 
@@ -36,7 +39,20 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
+		// Extrair tenant_id do contexto
+		tenantIDValue, exists := c.Get("tenant_id")
+		if !exists {
+			// Se não tem tenant_id, deixa passar
+			c.Next()
+			return
+		}
+
 		apiKey := apiKeyValue.(string)
+		tenantID := tenantIDValue.(string)
+
+		// Buscar configuração de rate limit para o tenant
+		config := rl.getRateLimitConfig(tenantID)
+
 		today := time.Now().Format("2006-01-02")
 
 		// Buscar ou criar registro de rate limit
@@ -61,8 +77,8 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		// Verificar limite diário
-		if rateLimit.Count >= rl.config.RequestsPerDay {
-			c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", rl.config.RequestsPerDay))
+		if rateLimit.Count >= config.RequestsPerDay {
+			c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", config.RequestsPerDay))
 			c.Header("X-RateLimit-Remaining", "0")
 			c.Header("X-RateLimit-Reset", getNextDayTimestamp())
 
@@ -70,7 +86,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 				"type":   "https://retech-core/errors/rate-limit-exceeded",
 				"title":  "Rate Limit Exceeded",
 				"status": http.StatusTooManyRequests,
-				"detail": fmt.Sprintf("Limite de %d requests por dia excedido", rl.config.RequestsPerDay),
+				"detail": fmt.Sprintf("Limite de %d requests por dia excedido", config.RequestsPerDay),
 			})
 			c.Abort()
 			return
@@ -95,16 +111,41 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		// Adicionar headers de rate limit
-		remaining := rl.config.RequestsPerDay - rateLimit.Count
+		remaining := config.RequestsPerDay - rateLimit.Count
 		if remaining < 0 {
 			remaining = 0
 		}
 
-		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", rl.config.RequestsPerDay))
+		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", config.RequestsPerDay))
 		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 		c.Header("X-RateLimit-Reset", getNextDayTimestamp())
 
 		c.Next()
+	}
+}
+
+// getRateLimitConfig retorna a configuração de rate limit para um tenant
+// Se o tenant tiver configuração personalizada, usa ela. Senão, usa a padrão do sistema.
+func (rl *RateLimiter) getRateLimitConfig(tenantID string) domain.RateLimitConfig {
+	ctx := context.Background()
+
+	// Tentar buscar tenant
+	tenant, err := rl.tenants.ByTenantID(ctx, tenantID)
+	if err == nil && tenant != nil && tenant.RateLimit != nil {
+		// Tenant tem configuração personalizada
+		return *tenant.RateLimit
+	}
+
+	// Usar configuração padrão do sistema
+	settings, err := rl.settings.Get(ctx)
+	if err == nil && settings != nil {
+		return settings.DefaultRateLimit
+	}
+
+	// Fallback para valores hardcoded se tudo falhar
+	return domain.RateLimitConfig{
+		RequestsPerDay:    1000,
+		RequestsPerMinute: 60,
 	}
 }
 
@@ -114,4 +155,3 @@ func getNextDayTimestamp() string {
 	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 	return fmt.Sprintf("%d", tomorrow.Unix())
 }
-
