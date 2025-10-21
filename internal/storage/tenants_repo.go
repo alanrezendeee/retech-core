@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/theretech/retech-core/internal/domain"
@@ -59,8 +60,21 @@ func (r *TenantsRepo) Update(ctx context.Context, tenantID string, updates map[s
 	return err
 }
 
-func (r *TenantsRepo) Delete(ctx context.Context, tenantID string) error {
-	_, err := r.col.DeleteOne(ctx, bson.M{"tenantId": tenantID})
-	return err
-}
+func (r *TenantsRepo) Delete(ctx context.Context, idOrTenantID string) error {
+	// Tentar deletar por tenantId primeiro
+	result, err := r.col.DeleteOne(ctx, bson.M{"tenantId": idOrTenantID})
+	if err != nil {
+		return err
+	}
 
+	// Se não deletou nada (tenantId vazio ou não encontrado), tentar por _id
+	if result.DeletedCount == 0 {
+		// Tentar converter para ObjectID
+		if objectID, err := primitive.ObjectIDFromHex(idOrTenantID); err == nil {
+			_, err = r.col.DeleteOne(ctx, bson.M{"_id": objectID})
+			return err
+		}
+	}
+
+	return nil
+}

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
@@ -73,6 +75,11 @@ func (h *TenantsHandler) Create(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// Gerar tenantId se não foi fornecido
+	if tenant.TenantID == "" {
+		tenant.TenantID = fmt.Sprintf("tenant-%d", time.Now().Unix())
+	}
+
 	if err := h.repo.Insert(ctx, &tenant); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"type":   "https://retech-core/errors/internal-error",
@@ -127,6 +134,17 @@ func (h *TenantsHandler) Delete(c *gin.Context) {
 	tenantID := c.Param("id")
 	ctx := c.Request.Context()
 
+	// Proteger tenant do SUPER_ADMIN
+	if tenantID == "tenant-20251021145821" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"type":   "https://retech-core/errors/forbidden",
+			"title":  "Forbidden",
+			"status": http.StatusForbidden,
+			"detail": "Não é possível deletar o tenant do SUPER_ADMIN",
+		})
+		return
+	}
+
 	if err := h.repo.Delete(ctx, tenantID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"type":   "https://retech-core/errors/internal-error",
@@ -139,4 +157,3 @@ func (h *TenantsHandler) Delete(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-

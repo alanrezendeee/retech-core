@@ -33,6 +33,19 @@ func EnsureIndexes(db *mongo.Database) error {
 		Keys: bson.D{{Key: "expiresAt", Value: 1}},
 		Options: options.Index().SetExpireAfterSeconds(0),
 	})
+	if err != nil { return err }
+
+	// rate_limits: índice por API key
+	_, err = db.Collection("rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "apiKey", Value: 1}},
+	})
+	if err != nil { return err }
+
+	// rate_limits: TTL em resetAt
+	_, err = db.Collection("rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "resetAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(0),
+	})
 	return err
 }
 
