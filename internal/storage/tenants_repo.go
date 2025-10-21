@@ -36,6 +36,18 @@ func (r *TenantsRepo) ByTenantID(ctx context.Context, tenantID string) (*domain.
 	return &t, err
 }
 
+func (r *TenantsRepo) FindByEmail(ctx context.Context, email string) (*domain.Tenant, error) {
+	var t domain.Tenant
+	err := r.col.FindOne(ctx, bson.M{"email": email}).Decode(&t)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 func (r *TenantsRepo) List(ctx context.Context) ([]*domain.Tenant, error) {
 	cursor, err := r.col.Find(ctx, bson.M{})
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/theretech/retech-core/internal/domain"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
@@ -38,7 +39,11 @@ func (r *UsersRepo) Create(ctx context.Context, user *domain.User, password stri
 		return err
 	}
 
-	user.ID = result.InsertedID.(string)
+	// Converter ObjectID para string
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		user.ID = oid.Hex()
+	}
+	
 	return nil
 }
 

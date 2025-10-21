@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,10 +13,10 @@ import (
 )
 
 type AuthHandler struct {
-	users    *storage.UsersRepo
-	tenants  *storage.TenantsRepo
-	apikeys  *storage.APIKeysRepo
-	jwt      *auth.JWTService
+	users   *storage.UsersRepo
+	tenants *storage.TenantsRepo
+	apikeys *storage.APIKeysRepo
+	jwt     *auth.JWTService
 }
 
 func NewAuthHandler(users *storage.UsersRepo, tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, jwt *auth.JWTService) *AuthHandler {
@@ -137,24 +138,36 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Verificar se email já existe
+	// Verificar se email do usuário já existe
 	existingUser, _ := h.users.FindByEmail(ctx, req.UserEmail)
 	if existingUser != nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"type":   "https://retech-core/errors/conflict",
-			"title":  "Conflict",
+			"title":  "Email já em uso",
 			"status": http.StatusConflict,
-			"detail": "Email já cadastrado",
+			"detail": fmt.Sprintf("O email '%s' já está cadastrado. Por favor, use outro email ou faça login.", req.UserEmail),
+		})
+		return
+	}
+
+	// Verificar se email do tenant já existe
+	existingTenant, _ := h.tenants.FindByEmail(ctx, req.TenantEmail)
+	if existingTenant != nil {
+		c.JSON(http.StatusConflict, gin.H{
+			"type":   "https://retech-core/errors/conflict",
+			"title":  "Email da empresa já em uso",
+			"status": http.StatusConflict,
+			"detail": fmt.Sprintf("O email da empresa '%s' já está cadastrado.", req.TenantEmail),
 		})
 		return
 	}
 
 	// Criar tenant
 	tenant := &domain.Tenant{
-		TenantID:  generateTenantID(req.TenantName),
-		Name:      req.TenantName,
-		Email:     req.TenantEmail,
-		Active:    true,
+		TenantID: generateTenantID(req.TenantName),
+		Name:     req.TenantName,
+		Email:    req.TenantEmail,
+		Active:   true,
 	}
 
 	if err := h.tenants.Insert(ctx, tenant); err != nil {
@@ -193,8 +206,27 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var generatedKey string
 
 	// Gerar tokens JWT
-	accessToken, _ := h.jwt.GenerateAccessToken(user)
-	refreshToken, _ := h.jwt.GenerateRefreshToken(user)
+	accessToken, err := h.jwt.GenerateAccessToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro ao gerar token",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao gerar token de acesso",
+		})
+		return
+	}
+
+	refreshToken, err := h.jwt.GenerateRefreshToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro ao gerar token",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao gerar refresh token",
+		})
+		return
+	}
 
 	// Remover senha
 	user.Password = ""
@@ -302,4 +334,3 @@ func generateTenantID(name string) string {
 	// Simplificado - em produção use algo mais robusto
 	return "tenant-" + time.Now().Format("20060102150405")
 }
-
