@@ -11,12 +11,11 @@ import (
 	"github.com/theretech/retech-core/internal/http/handlers"
 	"github.com/theretech/retech-core/internal/middleware"
 	"github.com/theretech/retech-core/internal/storage"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func NewRouter(
 	log zerolog.Logger,
-	db *mongo.Database,
+	m *storage.Mongo,
 	health *handlers.HealthHandler,
 	apikeys *storage.APIKeysRepo,
 	tenants *storage.TenantsRepo,
@@ -35,8 +34,8 @@ func NewRouter(
 	})
 
 	// Middlewares globais
-	rateLimiter := middleware.NewRateLimiter(db, domain.GetDefaultRateLimit())
-	usageLogger := middleware.NewUsageLogger(db)
+	rateLimiter := middleware.NewRateLimiter(m.DB, domain.GetDefaultRateLimit())
+	usageLogger := middleware.NewUsageLogger(m.DB)
 
 	// Rotas públicas (sem autenticação)
 	r.GET("/health", health.Get)
@@ -71,6 +70,7 @@ func NewRouter(
 	}
 
 	// Admin endpoints (protegidos por JWT + role SUPER_ADMIN)
+	adminHandler := handlers.NewAdminHandler(tenants, apikeys, users, m)
 	adminGroup := r.Group("/admin")
 	adminGroup.Use(auth.AuthJWT(jwtService), auth.RequireSuperAdmin())
 	{
@@ -84,47 +84,27 @@ func NewRouter(
 
 		// API Keys (admin only)
 		apikeysHandler := handlers.NewAPIKeysHandler(apikeys, tenants)
-		adminGroup.GET("/apikeys", func(c *gin.Context) {
-			// TODO: listar todas as API keys
-			c.JSON(200, gin.H{"message": "list all api keys"})
-		})
+		adminGroup.GET("/apikeys", adminHandler.ListAllAPIKeys)
 		adminGroup.POST("/apikeys", apikeysHandler.Create)
 		adminGroup.POST("/apikeys/revoke", apikeysHandler.Revoke)
 
 		// Analytics (admin only)
-		adminGroup.GET("/stats", func(c *gin.Context) {
-			// TODO: estatísticas globais
-			c.JSON(200, gin.H{"message": "global stats"})
-		})
-		adminGroup.GET("/usage", func(c *gin.Context) {
-			// TODO: uso da API
-			c.JSON(200, gin.H{"message": "api usage"})
-		})
+		adminGroup.GET("/stats", adminHandler.GetStats)
+		adminGroup.GET("/usage", adminHandler.GetUsage)
 	}
 
 	// Tenant endpoints (protegidos por JWT + role TENANT_USER)
+	tenantHandler := handlers.NewTenantHandler(apikeys, users, m)
 	meGroup := r.Group("/me")
 	meGroup.Use(auth.AuthJWT(jwtService), auth.RequireTenantUser())
 	{
 		// Minhas API Keys
-		meGroup.GET("/apikeys", func(c *gin.Context) {
-			// TODO: listar minhas keys
-			c.JSON(200, gin.H{"message": "my api keys"})
-		})
-		meGroup.POST("/apikeys", func(c *gin.Context) {
-			// TODO: criar key
-			c.JSON(200, gin.H{"message": "create key"})
-		})
-		meGroup.DELETE("/apikeys/:id", func(c *gin.Context) {
-			// TODO: deletar key
-			c.JSON(200, gin.H{"message": "delete key"})
-		})
+		meGroup.GET("/apikeys", tenantHandler.ListMyAPIKeys)
+		meGroup.POST("/apikeys", tenantHandler.CreateAPIKey)
+		meGroup.DELETE("/apikeys/:id", tenantHandler.DeleteAPIKey)
 
 		// Meu uso
-		meGroup.GET("/usage", func(c *gin.Context) {
-			// TODO: meu uso
-			c.JSON(200, gin.H{"message": "my usage"})
-		})
+		meGroup.GET("/usage", tenantHandler.GetMyUsage)
 	}
 
 	return r

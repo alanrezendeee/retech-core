@@ -2,162 +2,266 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/theretech/retech-core/internal/domain"
+	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/storage"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-type TenantsHandler struct {
-	Repo *storage.TenantsRepo
+type TenantHandler struct {
+	apikeys *storage.APIKeysRepo
+	users   *storage.UsersRepo
+	db      *storage.Mongo
 }
 
-func NewTenantsHandler(r *storage.TenantsRepo) *TenantsHandler {
-	return &TenantsHandler{Repo: r}
+func NewTenantHandler(apikeys *storage.APIKeysRepo, users *storage.UsersRepo, m *storage.Mongo) *TenantHandler {
+	return &TenantHandler{
+		apikeys: apikeys,
+		users:   users,
+		db:      m,
+	}
 }
 
-type createTenantDTO struct {
-	TenantID string `json:"tenantId" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-}
-
-// Create cria um novo tenant
-func (h *TenantsHandler) Create(c *gin.Context) {
-	var in createTenantDTO
-	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// ListMyAPIKeys lista as API keys do tenant logado
+// GET /me/apikeys
+func (h *TenantHandler) ListMyAPIKeys(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
 		return
 	}
 
-	// Verifica se já existe
-	existing, err := h.Repo.ByTenantID(c, in.TenantID)
+	ctx := c.Request.Context()
+	
+	cursor, err := h.db.DB.Collection("api_keys").Find(ctx, bson.M{"ownerId": tenantID})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "check tenant"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Internal Error",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao buscar API keys",
+		})
 		return
 	}
-	if existing != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "tenant already exists"})
+	defer cursor.Close(ctx)
+
+	var keys []bson.M
+	if err := cursor.All(ctx, &keys); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Internal Error",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao processar API keys",
+		})
 		return
 	}
 
-	tenant := &domain.Tenant{
-		TenantID: in.TenantID,
-		Name:     in.Name,
-		Email:    in.Email,
-		Active:   true,
-	}
-
-	if err := h.Repo.Insert(c, tenant); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "insert tenant"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, tenant)
+	c.JSON(http.StatusOK, gin.H{
+		"apikeys": keys,
+		"total":   len(keys),
+	})
 }
 
-// Get retorna um tenant por ID
-func (h *TenantsHandler) Get(c *gin.Context) {
-	tenantID := c.Param("id")
+// CreateAPIKey cria uma nova API key para o tenant logado
+// POST /me/apikeys
+func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
+		return
+	}
 
-	tenant, err := h.Repo.ByTenantID(c, tenantID)
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"type":   "https://retech-core/errors/validation-error",
+			"title":  "Validation Error",
+			"status": http.StatusBadRequest,
+			"detail": err.Error(),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	
+	// Criar API key
+	keyID := "rtc_" + time.Now().Format("20060102150405")
+	now := time.Now()
+
+	apikey := bson.M{
+		"keyId":     keyID,
+		"keyHash":   "hash_" + keyID, // TODO: implementar hash real
+		"scopes":    []string{"geo:read"},
+		"ownerId":   tenantID,
+		"name":      req.Name,
+		"expiresAt": now.Add(365 * 24 * time.Hour), // 1 ano
+		"revoked":   false,
+		"createdAt": now,
+	}
+
+	result, err := h.db.DB.Collection("api_keys").InsertOne(ctx, apikey)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get tenant"})
-		return
-	}
-	if tenant == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Internal Error",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao criar API key",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, tenant)
+	apikey["_id"] = result.InsertedID
+
+	c.JSON(http.StatusCreated, gin.H{
+		"apikey": apikey,
+		"key":    keyID, // Mostrar apenas uma vez
+	})
 }
 
-// List retorna todos os tenants
-func (h *TenantsHandler) List(c *gin.Context) {
-	tenants, err := h.Repo.List(c)
+// DeleteAPIKey deleta uma API key do tenant logado
+// DELETE /me/apikeys/:id
+func (h *TenantHandler) DeleteAPIKey(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	keyID := c.Param("id")
+
+	ctx := c.Request.Context()
+
+	// Verificar se a key pertence ao tenant
+	var apikey bson.M
+	err := h.db.DB.Collection("api_keys").FindOne(ctx, bson.M{
+		"keyId":   keyID,
+		"ownerId": tenantID,
+	}).Decode(&apikey)
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "list tenants"})
+		c.JSON(http.StatusNotFound, gin.H{
+			"type":   "https://retech-core/errors/not-found",
+			"title":  "Not Found",
+			"status": http.StatusNotFound,
+			"detail": "API key não encontrada",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"tenants": tenants})
-}
+	// Revogar (soft delete)
+	_, err = h.db.DB.Collection("api_keys").UpdateOne(ctx, bson.M{"keyId": keyID}, bson.M{
+		"$set": bson.M{"revoked": true},
+	})
 
-type updateTenantDTO struct {
-	Name   *string `json:"name"`
-	Email  *string `json:"email"`
-	Active *bool   `json:"active"`
-}
-
-// Update atualiza um tenant
-func (h *TenantsHandler) Update(c *gin.Context) {
-	tenantID := c.Param("id")
-
-	var in updateTenantDTO
-	if err := c.ShouldBindJSON(&in); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Verifica se existe
-	tenant, err := h.Repo.ByTenantID(c, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get tenant"})
-		return
-	}
-	if tenant == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
-		return
-	}
-
-	// Monta o map de updates
-	updates := make(map[string]interface{})
-	if in.Name != nil {
-		updates["name"] = *in.Name
-	}
-	if in.Email != nil {
-		updates["email"] = *in.Email
-	}
-	if in.Active != nil {
-		updates["active"] = *in.Active
-	}
-
-	if len(updates) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Internal Error",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao revogar API key",
+		})
 		return
 	}
 
-	if err := h.Repo.Update(c, tenantID, updates); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "update tenant"})
-		return
-	}
-
-	// Retorna o tenant atualizado
-	updated, _ := h.Repo.ByTenantID(c, tenantID)
-	c.JSON(http.StatusOK, updated)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "API key revogada com sucesso",
+	})
 }
 
-// Delete remove um tenant
-func (h *TenantsHandler) Delete(c *gin.Context) {
-	tenantID := c.Param("id")
-
-	// Verifica se existe
-	tenant, err := h.Repo.ByTenantID(c, tenantID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get tenant"})
-		return
-	}
-	if tenant == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
-		return
-	}
-
-	if err := h.Repo.Delete(c, tenantID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete tenant"})
+// GetMyUsage retorna uso da API do tenant logado
+// GET /me/usage
+func (h *TenantHandler) GetMyUsage(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	ctx := c.Request.Context()
+
+	// Total de requests
+	totalRequests, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"tenantId": tenantID})
+
+	// Requests hoje
+	today := time.Now().Format("2006-01-02")
+	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
+		"tenantId": tenantID,
+		"date":     today,
+	})
+
+	// Requests mês
+	startOfMonth := time.Now().Format("2006-01")
+	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
+		"tenantId": tenantID,
+		"date":     bson.M{"$regex": "^" + startOfMonth},
+	})
+
+	// Limite diário (free tier)
+	dailyLimit := int64(1000)
+	remaining := dailyLimit - requestsToday
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Por dia (últimos 7 dias)
+	pipeline := []bson.M{
+		{"$match": bson.M{
+			"tenantId":  tenantID,
+			"timestamp": bson.M{"$gte": time.Now().AddDate(0, 0, -7)},
+		}},
+		{"$group": bson.M{
+			"_id":   "$date",
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$sort": bson.M{"_id": 1}},
+	}
+
+	cursor, _ := h.db.DB.Collection("api_usage_logs").Aggregate(ctx, pipeline)
+	defer cursor.Close(ctx)
+
+	var byDay []bson.M
+	cursor.All(ctx, &byDay)
+
+	// Por endpoint
+	pipelineEndpoints := []bson.M{
+		{"$match": bson.M{"tenantId": tenantID}},
+		{"$group": bson.M{
+			"_id":   "$endpoint",
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$sort": bson.M{"count": -1}},
+		{"$limit": 10},
+	}
+
+	cursor2, _ := h.db.DB.Collection("api_usage_logs").Aggregate(ctx, pipelineEndpoints)
+	defer cursor2.Close(ctx)
+
+	var byEndpoint []bson.M
+	cursor2.All(ctx, &byEndpoint)
+
+	c.JSON(http.StatusOK, gin.H{
+		"totalRequests":  totalRequests,
+		"requestsToday":  requestsToday,
+		"requestsMonth":  requestsMonth,
+		"dailyLimit":     dailyLimit,
+		"remaining":      remaining,
+		"percentageUsed": float64(requestsToday) / float64(dailyLimit) * 100,
+		"byDay":          byDay,
+		"byEndpoint":     byEndpoint,
+	})
 }
-

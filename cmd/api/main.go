@@ -58,7 +58,7 @@ func main() {
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, m.DB, health, apikeys, tenants, users, estados, municipios, jwtService)
+	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, jwtService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
