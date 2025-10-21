@@ -2,13 +2,23 @@
 
 Sistema completo de API como serviço (API-as-a-Service) com gerenciamento de tenants, API Keys, analytics e portais administrativos.
 
-**Última atualização**: 2025-10-20 23:30  
-**Versão atual**: 0.4.0  
-**Status geral**: 🟢 Pronto para produção (features base)
+**Última atualização**: 2025-10-21 19:30  
+**Versão atual**: 1.2.0  
+**Status geral**: 🟢 Pronto para produção (features base + UX melhorado)
 
 ---
 
 ## 📅 Histórico de Atualizações
+
+### 2025-10-21 19:30 - UX e Correções! 🎨
+- ✅ **Dashboard com dados reais** - Cards agora exibem stats do `/admin/stats`
+- ✅ **Atividade Recente funcional** - Exibe ações baseadas em dados reais
+- ✅ **Select de Tenant melhorado** - Avatares + TenantID na drawer de API Key
+- ✅ **Rate Limit totalmente funcional** - Salvamento e carregamento corrigido
+- ✅ **Inputs de número editáveis** - Corrigido problema de auto-preenchimento
+- ✅ **Normalização PascalCase/camelCase** - Frontend↔Backend compatível
+- ✅ **Erro "uncontrolled input" corrigido** - Validação de valores undefined
+- ✅ Changelog detalhado criado (`CHANGELOG_2025-10-21.md`)
 
 ### 2025-10-21 - Sistema Completo Funcional! 🎉
 - ✅ Frontend renomeado: `retech-admin` → `retech-core-admin`

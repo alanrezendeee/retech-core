@@ -1,20 +1,24 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
+	"github.com/theretech/retech-core/internal/utils"
 )
 
 type SettingsHandler struct {
-	settings *storage.SettingsRepo
+	settings     *storage.SettingsRepo
+	activityRepo *storage.ActivityLogsRepo
 }
 
-func NewSettingsHandler(settings *storage.SettingsRepo) *SettingsHandler {
+func NewSettingsHandler(settings *storage.SettingsRepo, activityRepo *storage.ActivityLogsRepo) *SettingsHandler {
 	return &SettingsHandler{
-		settings: settings,
+		settings:     settings,
+		activityRepo: activityRepo,
 	}
 }
 
@@ -44,14 +48,19 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 	
 	var settings domain.SystemSettings
 	if err := c.ShouldBindJSON(&settings); err != nil {
+		// Log detalhado do erro
+		fmt.Printf("Erro ao fazer bind do JSON: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"type":   "https://retech-core/errors/validation-error",
 			"title":  "Erro de validação",
 			"status": http.StatusBadRequest,
-			"detail": err.Error(),
+			"detail": fmt.Sprintf("Erro ao processar JSON: %v", err),
 		})
 		return
 	}
+	
+	// Log dos valores recebidos
+	fmt.Printf("Settings recebidas: %+v\n", settings)
 	
 	// Validações
 	if settings.DefaultRateLimit.RequestsPerDay < 1 || settings.DefaultRateLimit.RequestsPerDay > 1000000 {
@@ -95,14 +104,33 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 	}
 	
 	if err := h.settings.Update(ctx, &settings); err != nil {
+		fmt.Printf("Erro ao atualizar settings no MongoDB: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"type":   "https://retech-core/errors/internal-error",
 			"title":  "Erro ao salvar configurações",
 			"status": http.StatusInternalServerError,
-			"detail": err.Error(),
+			"detail": fmt.Sprintf("Erro ao salvar no banco: %v", err),
 		})
 		return
 	}
+
+	// Log da atividade
+	utils.LogActivity(
+		c,
+		h.activityRepo,
+		domain.ActivityTypeSettingsUpdated,
+		domain.ActionUpdate,
+		utils.BuildActorFromContext(c),
+		domain.Resource{
+			Type: domain.ResourceTypeSettings,
+			ID:   "system-settings",
+			Name: "Configurações do Sistema",
+		},
+		map[string]interface{}{
+			"defaultRateLimit": settings.DefaultRateLimit,
+			"apiVersion":       settings.API.Version,
+		},
+	)
 	
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Configurações atualizadas com sucesso",

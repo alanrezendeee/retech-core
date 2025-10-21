@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/theretech/retech-core/internal/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -41,24 +41,61 @@ func (r *SettingsRepo) Get(ctx context.Context) (*domain.SystemSettings, error) 
 
 // Update atualiza as configurações do sistema
 func (r *SettingsRepo) Update(ctx context.Context, settings *domain.SystemSettings) error {
-	settings.UpdatedAt = time.Now().UTC()
-
-	// Upsert: cria se não existir, atualiza se existir
-	upsert := true
-	_, err := r.col.UpdateOne(
+	now := time.Now().UTC()
+	
+	fmt.Printf("📝 Atualizando settings: %+v\n", settings)
+	
+	// Verificar se documento já existe
+	var existing domain.SystemSettings
+	err := r.col.FindOne(ctx, bson.M{"_id": SystemSettingsID}).Decode(&existing)
+	
+	if err == mongo.ErrNoDocuments {
+		// Não existe - criar novo
+		fmt.Println("ℹ️ Documento não existe, criando novo...")
+		newSettings := &domain.SystemSettings{
+			ID:               SystemSettingsID,
+			DefaultRateLimit: settings.DefaultRateLimit,
+			CORS:             settings.CORS,
+			JWT:              settings.JWT,
+			API:              settings.API,
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		}
+		_, err = r.col.InsertOne(ctx, newSettings)
+		if err != nil {
+			fmt.Printf("❌ Erro ao inserir: %v\n", err)
+		} else {
+			fmt.Println("✅ Documento criado com sucesso!")
+		}
+		return err
+	}
+	
+	if err != nil {
+		fmt.Printf("❌ Erro ao buscar documento existente: %v\n", err)
+		return err
+	}
+	
+	// Existe - atualizar apenas os campos necessários
+	fmt.Println("ℹ️ Documento existe, atualizando...")
+	_, err = r.col.UpdateOne(
 		ctx,
 		bson.M{"_id": SystemSettingsID},
 		bson.M{
-			"$set": settings,
-			"$setOnInsert": bson.M{
-				"_id":       SystemSettingsID,
-				"createdAt": time.Now().UTC(),
+			"$set": bson.M{
+				"defaultRateLimit": settings.DefaultRateLimit,
+				"cors":             settings.CORS,
+				"jwt":              settings.JWT,
+				"api":              settings.API,
+				"updatedAt":        now,
 			},
 		},
-		&options.UpdateOptions{
-			Upsert: &upsert,
-		},
 	)
+	
+	if err != nil {
+		fmt.Printf("❌ Erro ao atualizar: %v\n", err)
+	} else {
+		fmt.Println("✅ Documento atualizado com sucesso!")
+	}
 
 	return err
 }

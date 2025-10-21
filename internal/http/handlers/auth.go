@@ -9,22 +9,25 @@ import (
 	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
+	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AuthHandler struct {
-	users   *storage.UsersRepo
-	tenants *storage.TenantsRepo
-	apikeys *storage.APIKeysRepo
-	jwt     *auth.JWTService
+	users        *storage.UsersRepo
+	tenants      *storage.TenantsRepo
+	apikeys      *storage.APIKeysRepo
+	activityRepo *storage.ActivityLogsRepo
+	jwt          *auth.JWTService
 }
 
-func NewAuthHandler(users *storage.UsersRepo, tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, jwt *auth.JWTService) *AuthHandler {
+func NewAuthHandler(users *storage.UsersRepo, tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, activityRepo *storage.ActivityLogsRepo, jwt *auth.JWTService) *AuthHandler {
 	return &AuthHandler{
-		users:   users,
-		tenants: tenants,
-		apikeys: apikeys,
-		jwt:     jwt,
+		users:        users,
+		tenants:      tenants,
+		apikeys:      apikeys,
+		activityRepo: activityRepo,
+		jwt:          jwt,
 	}
 }
 
@@ -110,6 +113,29 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	// Atualizar último login
 	_ = h.users.UpdateLastLogin(c.Request.Context(), user.ID)
+
+	// Log da atividade
+	utils.LogActivity(
+		c,
+		h.activityRepo,
+		domain.ActivityTypeUserLogin,
+		domain.ActionLogin,
+		domain.Actor{
+			UserID: user.ID,
+			Email:  user.Email,
+			Name:   user.Name,
+			Role:   string(user.Role),
+		},
+		domain.Resource{
+			Type: domain.ResourceTypeUser,
+			ID:   user.ID,
+			Name: user.Name,
+		},
+		map[string]interface{}{
+			"role":     user.Role,
+			"tenantId": user.TenantID,
+		},
+	)
 
 	// Remover senha da resposta
 	user.Password = ""
@@ -227,6 +253,56 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		})
 		return
 	}
+
+	// Log da atividade de criação de tenant
+	utils.LogActivity(
+		c,
+		h.activityRepo,
+		domain.ActivityTypeTenantCreated,
+		domain.ActionCreate,
+		domain.Actor{
+			UserID: user.ID,
+			Email:  user.Email,
+			Name:   user.Name,
+			Role:   string(user.Role),
+		},
+		domain.Resource{
+			Type: domain.ResourceTypeTenant,
+			ID:   tenant.TenantID,
+			Name: tenant.Name,
+		},
+		map[string]interface{}{
+			"email":   tenant.Email,
+			"company": tenant.Company,
+			"purpose": tenant.Purpose,
+			"via":     "self-register",
+		},
+	)
+
+	// Log da atividade de criação de usuário
+	utils.LogActivity(
+		c,
+		h.activityRepo,
+		domain.ActivityTypeUserCreated,
+		domain.ActionCreate,
+		domain.Actor{
+			UserID: user.ID,
+			Email:  user.Email,
+			Name:   user.Name,
+			Role:   string(user.Role),
+		},
+		domain.Resource{
+			Type: domain.ResourceTypeUser,
+			ID:   user.ID,
+			Name: user.Name,
+		},
+		map[string]interface{}{
+			"email":    user.Email,
+			"role":     user.Role,
+			"tenantId": user.TenantID,
+			"via":      "self-register",
+		},
+	)
 
 	// Remover senha
 	user.Password = ""

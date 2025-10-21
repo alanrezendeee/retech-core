@@ -22,6 +22,7 @@ func NewRouter(
 	estados *storage.EstadosRepo,
 	municipios *storage.MunicipiosRepo,
 	settings *storage.SettingsRepo,
+	activityLogs *storage.ActivityLogsRepo,
 	jwtService *auth.JWTService,
 ) *gin.Engine {
 	r := gin.New()
@@ -63,7 +64,7 @@ func NewRouter(
 	r.GET("/openapi.yaml", handlers.OpenAPIYAML)
 
 	// Auth endpoints (públicos)
-	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, jwtService)
+	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, jwtService)
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/login", authHandler.Login)
@@ -94,7 +95,7 @@ func NewRouter(
 	adminGroup.Use(auth.AuthJWT(jwtService), auth.RequireSuperAdmin())
 	{
 		// Tenants (admin only)
-		tenantsHandler := handlers.NewTenantsHandler(tenants)
+		tenantsHandler := handlers.NewTenantsHandler(tenants, activityLogs)
 		adminGroup.GET("/tenants", tenantsHandler.List)
 		adminGroup.GET("/tenants/:id", tenantsHandler.Get)
 		adminGroup.POST("/tenants", tenantsHandler.Create)
@@ -102,7 +103,7 @@ func NewRouter(
 		adminGroup.DELETE("/tenants/:id", tenantsHandler.Delete)
 
 		// API Keys (admin only)
-		apikeysHandler := handlers.NewAPIKeysHandler(apikeys, tenants)
+		apikeysHandler := handlers.NewAPIKeysHandler(apikeys, tenants, activityLogs)
 		adminGroup.GET("/apikeys", adminHandler.ListAllAPIKeys)
 		adminGroup.POST("/apikeys", apikeysHandler.Create)
 		adminGroup.POST("/apikeys/revoke", apikeysHandler.Revoke)
@@ -112,9 +113,16 @@ func NewRouter(
 		adminGroup.GET("/usage", adminHandler.GetUsage)
 
 		// Settings (admin only)
-		settingsHandler := handlers.NewSettingsHandler(settings)
+		settingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
 		adminGroup.GET("/settings", settingsHandler.Get)
 		adminGroup.PUT("/settings", settingsHandler.Update)
+
+		// Activity Logs (admin only)
+		activityHandler := handlers.NewActivityHandler(activityLogs)
+		adminGroup.GET("/activity", activityHandler.GetRecent)
+		adminGroup.GET("/activity/user/:userId", activityHandler.GetByUser)
+		adminGroup.GET("/activity/type/:type", activityHandler.GetByType)
+		adminGroup.GET("/activity/resource/:type/:id", activityHandler.GetByResource)
 	}
 
 	// Tenant endpoints (protegidos por JWT + role TENANT_USER)

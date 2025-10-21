@@ -8,14 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
+	"github.com/theretech/retech-core/internal/utils"
 )
 
 type TenantsHandler struct {
-	repo *storage.TenantsRepo
+	repo         *storage.TenantsRepo
+	activityRepo *storage.ActivityLogsRepo
 }
 
-func NewTenantsHandler(repo *storage.TenantsRepo) *TenantsHandler {
-	return &TenantsHandler{repo: repo}
+func NewTenantsHandler(repo *storage.TenantsRepo, activityRepo *storage.ActivityLogsRepo) *TenantsHandler {
+	return &TenantsHandler{
+		repo:         repo,
+		activityRepo: activityRepo,
+	}
 }
 
 // List retorna todos os tenants
@@ -90,6 +95,25 @@ func (h *TenantsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Log da atividade
+	utils.LogActivity(
+		c,
+		h.activityRepo,
+		domain.ActivityTypeTenantCreated,
+		domain.ActionCreate,
+		utils.BuildActorFromContext(c),
+		domain.Resource{
+			Type: domain.ResourceTypeTenant,
+			ID:   tenant.TenantID,
+			Name: tenant.Name,
+		},
+		map[string]interface{}{
+			"email":   tenant.Email,
+			"company": tenant.Company,
+			"active":  tenant.Active,
+		},
+	)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"tenant": tenant,
 	})
@@ -124,6 +148,37 @@ func (h *TenantsHandler) Update(c *gin.Context) {
 	// Buscar tenant atualizado
 	tenant, _ := h.repo.ByTenantID(ctx, tenantID)
 
+	// Log da atividade
+	if tenant != nil {
+		// Determinar tipo específico de ação
+		activityType := domain.ActivityTypeTenantUpdated
+		action := domain.ActionUpdate
+		
+		if active, ok := updates["active"].(bool); ok {
+			if active {
+				activityType = domain.ActivityTypeTenantActivated
+				action = domain.ActionActivate
+			} else {
+				activityType = domain.ActivityTypeTenantDeactivated
+				action = domain.ActionDeactivate
+			}
+		}
+
+		utils.LogActivity(
+			c,
+			h.activityRepo,
+			activityType,
+			action,
+			utils.BuildActorFromContext(c),
+			domain.Resource{
+				Type: domain.ResourceTypeTenant,
+				ID:   tenant.TenantID,
+				Name: tenant.Name,
+			},
+			updates,
+		)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"tenant": tenant,
 	})
@@ -145,6 +200,9 @@ func (h *TenantsHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// Buscar tenant antes de deletar (para log)
+	tenant, _ := h.repo.ByTenantID(ctx, tenantID)
+
 	if err := h.repo.Delete(ctx, tenantID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"type":   "https://retech-core/errors/internal-error",
@@ -153,6 +211,26 @@ func (h *TenantsHandler) Delete(c *gin.Context) {
 			"detail": "Erro ao deletar tenant",
 		})
 		return
+	}
+
+	// Log da atividade
+	if tenant != nil {
+		utils.LogActivity(
+			c,
+			h.activityRepo,
+			domain.ActivityTypeTenantDeleted,
+			domain.ActionDelete,
+			utils.BuildActorFromContext(c),
+			domain.Resource{
+				Type: domain.ResourceTypeTenant,
+				ID:   tenant.TenantID,
+				Name: tenant.Name,
+			},
+			map[string]interface{}{
+				"email":   tenant.Email,
+				"company": tenant.Company,
+			},
+		)
 	}
 
 	c.Status(http.StatusNoContent)

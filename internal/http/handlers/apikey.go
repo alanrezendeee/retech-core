@@ -16,15 +16,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
+	"github.com/theretech/retech-core/internal/utils"
 )
 
 type APIKeysHandler struct {
-	Repo        *storage.APIKeysRepo
-	TenantsRepo *storage.TenantsRepo
+	Repo         *storage.APIKeysRepo
+	TenantsRepo  *storage.TenantsRepo
+	ActivityRepo *storage.ActivityLogsRepo
 }
 
-func NewAPIKeysHandler(r *storage.APIKeysRepo, t *storage.TenantsRepo) *APIKeysHandler {
-	return &APIKeysHandler{Repo: r, TenantsRepo: t}
+func NewAPIKeysHandler(r *storage.APIKeysRepo, t *storage.TenantsRepo, a *storage.ActivityLogsRepo) *APIKeysHandler {
+	return &APIKeysHandler{
+		Repo:         r,
+		TenantsRepo:  t,
+		ActivityRepo: a,
+	}
 }
 
 type createKeyDTO struct {
@@ -79,6 +85,26 @@ func (h *APIKeysHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "insert apikey"})
 		return
 	}
+
+	// Log da atividade
+	utils.LogActivity(
+		c,
+		h.ActivityRepo,
+		domain.ActivityTypeAPIKeyCreated,
+		domain.ActionCreate,
+		utils.BuildActorFromContext(c),
+		domain.Resource{
+			Type: domain.ResourceTypeAPIKey,
+			ID:   keyId,
+			Name: fmt.Sprintf("API Key para %s", tenant.Name),
+		},
+		map[string]interface{}{
+			"tenantId":  in.OwnerID,
+			"expiresAt": k.ExpiresAt,
+			"scopes":    in.Scopes,
+		},
+	)
+
 	// Mostramos a chave **apenas agora**:
 	c.JSON(http.StatusCreated, gin.H{
 		"api_key":   keyId + "." + keySecret,
@@ -242,10 +268,40 @@ func (h *APIKeysHandler) Revoke(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Buscar API Key antes de revogar (para log)
+	apiKey, _ := h.Repo.ByKeyIDAny(c, in.KeyID)
+
 	if err := h.Repo.Revoke(c, in.KeyID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "revoke apikey"})
 		return
 	}
+
+	// Log da atividade
+	if apiKey != nil {
+		tenant, _ := h.TenantsRepo.ByTenantID(c, apiKey.OwnerID)
+		tenantName := "Unknown"
+		if tenant != nil {
+			tenantName = tenant.Name
+		}
+
+		utils.LogActivity(
+			c,
+			h.ActivityRepo,
+			domain.ActivityTypeAPIKeyRevoked,
+			domain.ActionRevoke,
+			utils.BuildActorFromContext(c),
+			domain.Resource{
+				Type: domain.ResourceTypeAPIKey,
+				ID:   in.KeyID,
+				Name: fmt.Sprintf("API Key de %s", tenantName),
+			},
+			map[string]interface{}{
+				"tenantId": apiKey.OwnerID,
+			},
+		)
+	}
+
 	c.Status(http.StatusNoContent)
 }
 

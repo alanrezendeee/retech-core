@@ -56,6 +56,14 @@ func main() {
 		log.Warn().Err(err).Msg("failed to ensure default settings")
 	}
 
+	// Activity Logs
+	activityLogs := storage.NewActivityLogsRepo(m.DB)
+	
+	// Criar índices para activity logs
+	if err := activityLogs.EnsureIndexes(context.Background()); err != nil {
+		log.Warn().Err(err).Msg("failed to create activity logs indexes")
+	}
+
 	// JWT Service
 	jwtService := auth.NewJWTService(
 		cfg.JWTAccessSecret,
@@ -66,7 +74,7 @@ func main() {
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, settings, jwtService)
+	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, settings, activityLogs, jwtService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
