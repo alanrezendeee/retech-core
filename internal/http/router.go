@@ -106,6 +106,7 @@ func NewRouter(
 		apikeysHandler := handlers.NewAPIKeysHandler(apikeys, tenants, activityLogs)
 		adminGroup.GET("/apikeys", adminHandler.ListAllAPIKeys)
 		adminGroup.POST("/apikeys", apikeysHandler.Create)
+		adminGroup.POST("/apikeys/rotate", apikeysHandler.Rotate)
 		adminGroup.POST("/apikeys/revoke", apikeysHandler.Revoke)
 
 		// Analytics (admin only)
@@ -133,6 +134,7 @@ func NewRouter(
 		// Minhas API Keys
 		meGroup.GET("/apikeys", tenantHandler.ListMyAPIKeys)
 		meGroup.POST("/apikeys", tenantHandler.CreateAPIKey)
+		meGroup.POST("/apikeys/:id/rotate", tenantHandler.RotateAPIKey)
 		meGroup.DELETE("/apikeys/:id", tenantHandler.DeleteAPIKey)
 
 		// Meu uso

@@ -165,61 +165,61 @@ func (h *APIKeysHandler) rotateExistingKey(c *gin.Context, in rotateKeyDTO) {
 	})
 }
 
-// Rotate - Nova implementação do zero
-type rotateRequest struct {
-	KeyID string `json:"keyId" binding:"required"`
-}
-
+// Rotate rotaciona uma API key (revoga antiga e cria nova)
+// POST /admin/apikeys/rotate
 func (h *APIKeysHandler) Rotate(c *gin.Context) {
-	// Debug: verificar se o request está chegando
-	fmt.Printf("Rotate handler chamado!\n")
-
-	// Debug: verificar headers
-	fmt.Printf("Headers: %v\n", c.Request.Header)
-
-	// Debug: verificar body
-	body, err := c.GetRawData()
-	if err != nil {
-		fmt.Printf("Erro ao ler body: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
-		return
+	var req struct {
+		KeyID string `json:"keyId" binding:"required"`
 	}
-	fmt.Printf("Body: %s\n", string(body))
 
-	// Resposta simples
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Rotate endpoint working - debug mode",
-		"status":  "success",
-	})
-}
-
-func (h *APIKeysHandler) RotateNew(c *gin.Context) {
-	// Handler completamente novo
-	c.String(http.StatusOK, "RotateNew endpoint working")
-}
-
-func (h *APIKeysHandler) RotateTest(c *gin.Context) {
-	// Implementação completa de rotação (solução alternativa)
-	var req rotateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"type":   "https://retech-core/errors/validation-error",
+			"title":  "Erro de validação",
+			"status": http.StatusBadRequest,
+			"detail": "keyId é obrigatório",
+		})
 		return
 	}
 
 	// Buscar a API key existente
 	existingKey, err := h.Repo.ByKeyIDAny(c, req.KeyID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "get existing key"})
+		fmt.Printf("❌ Erro ao buscar API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao buscar API key",
+		})
 		return
 	}
 	if existingKey == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "api key not found"})
+		c.JSON(http.StatusNotFound, gin.H{
+			"type":   "https://retech-core/errors/not-found",
+			"title":  "API Key não encontrada",
+			"status": http.StatusNotFound,
+			"detail": "API key não existe",
+		})
 		return
+	}
+
+	// Buscar tenant (para log)
+	tenant, _ := h.TenantsRepo.ByTenantID(c, existingKey.OwnerID)
+	tenantName := "Unknown"
+	if tenant != nil {
+		tenantName = tenant.Name
 	}
 
 	// Revogar a chave antiga
 	if err := h.Repo.Revoke(c, req.KeyID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "revoke old key"})
+		fmt.Printf("❌ Erro ao revogar API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao revogar chave antiga",
+		})
 		return
 	}
 
@@ -246,15 +246,46 @@ func (h *APIKeysHandler) RotateTest(c *gin.Context) {
 	}
 
 	if err := h.Repo.Insert(c, newKey); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "insert new key"})
+		fmt.Printf("❌ Erro ao criar nova API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao criar nova chave",
+		})
 		return
 	}
 
-	// Retornar a nova chave
+	// Log da atividade
+	utils.LogActivity(
+		c,
+		h.ActivityRepo,
+		"apikey.rotated",
+		domain.ActionUpdate,
+		utils.BuildActorFromContext(c),
+		domain.Resource{
+			Type: domain.ResourceTypeAPIKey,
+			ID:   keyId,
+			Name: fmt.Sprintf("API Key de %s (rotacionada)", tenantName),
+		},
+		map[string]interface{}{
+			"tenantId":  existingKey.OwnerID,
+			"oldKeyId":  req.KeyID,
+			"newKeyId":  keyId,
+			"expiresAt": newKey.ExpiresAt,
+		},
+	)
+
+	fmt.Printf("✅ API Key rotacionada com sucesso!\n")
+	fmt.Printf("   Old keyId: %s\n", req.KeyID)
+	fmt.Printf("   New keyId: %s\n", keyId)
+	fmt.Printf("   Tenant: %s\n", tenantName)
+
+	// Retornar a nova chave (apenas uma vez!)
 	c.JSON(http.StatusCreated, gin.H{
 		"api_key":   keyId + "." + keySecret,
 		"expiresAt": newKey.ExpiresAt,
-		"message":   "API key rotated successfully",
+		"message":   "API key rotacionada com sucesso",
 	})
 }
 

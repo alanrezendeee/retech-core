@@ -49,7 +49,7 @@ func (h *TenantHandler) ListMyAPIKeys(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	
+
 	cursor, err := h.db.DB.Collection("api_keys").Find(ctx, bson.M{"ownerId": tenantID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -108,13 +108,13 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	
+
 	// ✅ Gerar API key REAL (mesmo algoritmo do admin)
 	keyId := uuid.NewString()
 	keySecret := randomBase32Tenant(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
 	hash := hashKeyTenant(secret, keyId, keySecret)
-	
+
 	// Validade padrão: 90 dias
 	days := envIntTenant("APIKEY_TTL_DAYS", 90)
 	now := time.Now().UTC()
@@ -150,6 +150,115 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 		"key":       keyId + "." + keySecret, // ← Chave completa!
 		"expiresAt": k.ExpiresAt,
 		"name":      req.Name,
+	})
+}
+
+// RotateAPIKey rotaciona uma API key do tenant logado (revoga antiga e cria nova)
+// POST /me/apikeys/:id/rotate
+func (h *TenantHandler) RotateAPIKey(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
+		return
+	}
+
+	keyID := c.Param("id")
+	ctx := c.Request.Context()
+
+	// Buscar API key existente e verificar ownership
+	existingKey, err := h.apikeys.ByKeyIDAny(ctx, keyID)
+	if err != nil {
+		fmt.Printf("❌ Erro ao buscar API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao buscar API key",
+		})
+		return
+	}
+
+	if existingKey == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"type":   "https://retech-core/errors/not-found",
+			"title":  "API Key não encontrada",
+			"status": http.StatusNotFound,
+			"detail": "API key não existe",
+		})
+		return
+	}
+
+	// Verificar se a key pertence ao tenant
+	if existingKey.OwnerID != tenantID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"type":   "https://retech-core/errors/forbidden",
+			"title":  "Acesso negado",
+			"status": http.StatusForbidden,
+			"detail": "Você não tem permissão para rotacionar esta API key",
+		})
+		return
+	}
+
+	// Revogar a chave antiga
+	if err := h.apikeys.Revoke(ctx, keyID); err != nil {
+		fmt.Printf("❌ Erro ao revogar API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao revogar chave antiga",
+		})
+		return
+	}
+
+	// Criar nova chave com os mesmos dados
+	keyId := uuid.NewString()
+	keySecret := randomBase32Tenant(32)
+	secret := os.Getenv("APIKEY_HASH_SECRET")
+	hash := hashKeyTenant(secret, keyId, keySecret)
+
+	// Calcular nova data de expiração (mesmo período da chave original)
+	now := time.Now().UTC()
+	days := int(existingKey.ExpiresAt.Sub(existingKey.CreatedAt).Hours() / 24)
+	if days <= 0 {
+		days = envIntTenant("APIKEY_TTL_DAYS", 90)
+	}
+
+	newKey := &domain.APIKey{
+		KeyID:     keyId,
+		KeyHash:   hash,
+		OwnerID:   tenantID,
+		Scopes:    existingKey.Scopes,
+		ExpiresAt: now.Add(time.Duration(days) * 24 * time.Hour),
+		Revoked:   false,
+		CreatedAt: now,
+	}
+
+	if err := h.apikeys.Insert(ctx, newKey); err != nil {
+		fmt.Printf("❌ Erro ao criar nova API key: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"type":   "https://retech-core/errors/internal-error",
+			"title":  "Erro interno",
+			"status": http.StatusInternalServerError,
+			"detail": "Erro ao criar nova chave",
+		})
+		return
+	}
+
+	fmt.Printf("✅ API Key rotacionada com sucesso para tenant %s\n", tenantID)
+	fmt.Printf("   Old keyId: %s\n", keyID)
+	fmt.Printf("   New keyId: %s\n", keyId)
+
+	// Retornar a nova chave (apenas uma vez!)
+	c.JSON(http.StatusCreated, gin.H{
+		"key":       keyId + "." + keySecret,
+		"expiresAt": newKey.ExpiresAt,
+		"message":   "API key rotacionada com sucesso",
 	})
 }
 
