@@ -26,6 +26,21 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 
+	// CORS para permitir requisições do frontend
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "https://core.theretech.com.br")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
+		c.Header("Access-Control-Allow-Credentials", "true")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
 	// Solução baseada no Stack Overflow: configurar para não reutilizar conexões
 	r.Use(func(c *gin.Context) {
 		fmt.Printf("Middleware global chamado para: %s %s\n", c.Request.Method, c.Request.URL.Path)
@@ -57,9 +72,9 @@ func NewRouter(
 	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		auth.AuthAPIKey(apikeys),        // Requer API Key válida
-		rateLimiter.Middleware(),        // Aplica rate limiting
-		usageLogger.Middleware(),        // Loga uso
+		auth.AuthAPIKey(apikeys), // Requer API Key válida
+		rateLimiter.Middleware(), // Aplica rate limiting
+		usageLogger.Middleware(), // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)

@@ -21,6 +21,10 @@ Sistema completo de API como serviço (API-as-a-Service) com gerenciamento de te
 - ✅ Scripts de seed de teste (`seed-test.sh`, `create-admin.sh`)
 - ✅ Layouts do Next.js corrigidos
 - ✅ Sistema completo end-to-end testado e funcionando
+- ✅ **Arquitetura de produção definida**: `core.theretech.com.br` (frontend) + `api-core.theretech.com.br` (backend)
+- ✅ CORS configurado para comunicação entre domínios
+- ✅ Cliente API ajustado para novo domínio
+- ✅ Configurações Railway preparadas para deploy
 
 ### 2025-10-20 - Sessão Épica! 🎉
 - ✅ **FASE 0** concluída (100%)
