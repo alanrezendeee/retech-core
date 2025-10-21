@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 // SystemSettings representa as configurações globais do sistema
 type SystemSettings struct {
@@ -43,6 +46,15 @@ type APIConfig struct {
 
 // GetDefaultSettings retorna as configurações padrão do sistema
 func GetDefaultSettings() *SystemSettings {
+	// Detectar ambiente da variável ENV (padrão: development)
+	env := os.Getenv("ENV")
+	if env == "" {
+		env = os.Getenv("NODE_ENV")
+	}
+	if env == "" {
+		env = "development"
+	}
+	
 	return &SystemSettings{
 		DefaultRateLimit: RateLimitConfig{
 			RequestsPerDay:    1000, // 1k requests/dia para plano free
@@ -62,7 +74,7 @@ func GetDefaultSettings() *SystemSettings {
 		},
 		API: APIConfig{
 			Version:     "1.0.0",
-			Environment: "development",
+			Environment: env, // ← Agora vem da variável de ambiente!
 			Maintenance: false,
 		},
 		CreatedAt: time.Now().UTC(),
