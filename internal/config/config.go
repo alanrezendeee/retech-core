@@ -16,6 +16,11 @@ type Config struct {
 	MongoDB        string
 	EnableCORS     bool
 	CORSOrigins    []string
+	// JWT
+	JWTAccessSecret  string
+	JWTRefreshSecret string
+	JWTAccessTTL     time.Duration
+	JWTRefreshTTL    time.Duration
 }
 
 func getenv(key, def string) string {
@@ -35,6 +40,11 @@ func Load() *Config {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
+		// JWT
+		JWTAccessSecret:  getenv("JWT_ACCESS_SECRET", "dev-access-secret-change-in-production"),
+		JWTRefreshSecret: getenv("JWT_REFRESH_SECRET", "dev-refresh-secret-change-in-production"),
+		JWTAccessTTL:     15 * time.Minute, // Access token válido por 15 minutos
+		JWTRefreshTTL:    7 * 24 * time.Hour, // Refresh token válido por 7 dias
 	}
 	log.Printf("[config] ENV=%s PORT=%s MONGO_URI=%s DB=%s",
 		c.Env, c.HTTPPort, c.MongoURI, c.MongoDB)

@@ -7,12 +7,23 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/theretech/retech-core/internal/auth"
+	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/http/handlers"
+	"github.com/theretech/retech-core/internal/middleware"
 	"github.com/theretech/retech-core/internal/storage"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func NewRouter(log zerolog.Logger, health *handlers.HealthHandler, apikeys *storage.APIKeysRepo, tenants *storage.TenantsRepo,
-	estados *storage.EstadosRepo, municipios *storage.MunicipiosRepo,
+func NewRouter(
+	log zerolog.Logger,
+	db *mongo.Database,
+	health *handlers.HealthHandler,
+	apikeys *storage.APIKeysRepo,
+	tenants *storage.TenantsRepo,
+	users *storage.UsersRepo,
+	estados *storage.EstadosRepo,
+	municipios *storage.MunicipiosRepo,
+	jwtService *auth.JWTService,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -23,59 +34,98 @@ func NewRouter(log zerolog.Logger, health *handlers.HealthHandler, apikeys *stor
 		c.Next()
 	})
 
-	// rotas básicas
+	// Middlewares globais
+	rateLimiter := middleware.NewRateLimiter(db, domain.GetDefaultRateLimit())
+	usageLogger := middleware.NewUsageLogger(db)
+
+	// Rotas públicas (sem autenticação)
 	r.GET("/health", health.Get)
 	r.GET("/version", handlers.Version)
 	r.GET("/docs", handlers.DocsHTML)
 	r.GET("/openapi.yaml", handlers.OpenAPIYAML)
 
-	// Tenants
-	t := handlers.NewTenantsHandler(tenants)
-	r.POST("/tenants", t.Create)
-	r.GET("/tenants", t.List)
-	r.GET("/tenants/:id", t.Get)
-	r.PUT("/tenants/:id", t.Update)
-	r.DELETE("/tenants/:id", t.Delete)
+	// Auth endpoints (públicos)
+	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, jwtService)
+	authGroup := r.Group("/auth")
+	{
+		authGroup.POST("/login", authHandler.Login)
+		authGroup.POST("/register", authHandler.Register)
+		authGroup.POST("/refresh", authHandler.RefreshToken)
+		authGroup.GET("/me", auth.AuthJWT(jwtService), authHandler.Me)
+	}
 
-	// API Keys
-	k := handlers.NewAPIKeysHandler(apikeys, tenants)
-	r.POST("/apikeys", k.Create)
-	r.POST("/apikeys/revoke", k.Revoke)
+	// GEO endpoints (protegidos por API Key + rate limit + logging)
+	geoHandler := handlers.NewGeoHandler(estados, municipios)
+	geoGroup := r.Group("/geo")
+	geoGroup.Use(
+		auth.AuthAPIKey(apikeys),        // Requer API Key válida
+		rateLimiter.Middleware(),        // Aplica rate limiting
+		usageLogger.Middleware(),        // Loga uso
+	)
+	{
+		geoGroup.GET("/ufs", geoHandler.ListUFs)
+		geoGroup.GET("/ufs/:sigla", geoHandler.GetUF)
+		geoGroup.GET("/municipios", geoHandler.ListMunicipios)
+		geoGroup.GET("/municipios/:uf", geoHandler.ListMunicipiosByUF)
+		geoGroup.GET("/municipios/id/:id", geoHandler.GetMunicipio)
+	}
 
-	// Rota para rotação (solução alternativa)
-	r.POST("/apikeys/refresh", k.RotateTest)
+	// Admin endpoints (protegidos por JWT + role SUPER_ADMIN)
+	adminGroup := r.Group("/admin")
+	adminGroup.Use(auth.AuthJWT(jwtService), auth.RequireSuperAdmin())
+	{
+		// Tenants (admin only)
+		tenantsHandler := handlers.NewTenantsHandler(tenants)
+		adminGroup.GET("/tenants", tenantsHandler.List)
+		adminGroup.GET("/tenants/:id", tenantsHandler.Get)
+		adminGroup.POST("/tenants", tenantsHandler.Create)
+		adminGroup.PUT("/tenants/:id", tenantsHandler.Update)
+		adminGroup.DELETE("/tenants/:id", tenantsHandler.Delete)
 
-	// Rotate com nome completamente diferente
-	r.POST("/rotate-key", k.Rotate)
-	r.POST("/rotate-new", k.RotateNew)
-	r.POST("/test-rotate-completely-different", k.Rotate)
-	r.POST("/test-rotate-handler", k.RotateTest)
+		// API Keys (admin only)
+		apikeysHandler := handlers.NewAPIKeysHandler(apikeys, tenants)
+		adminGroup.GET("/apikeys", func(c *gin.Context) {
+			// TODO: listar todas as API keys
+			c.JSON(200, gin.H{"message": "list all api keys"})
+		})
+		adminGroup.POST("/apikeys", apikeysHandler.Create)
+		adminGroup.POST("/apikeys/revoke", apikeysHandler.Revoke)
 
-	// Teste GET simples
-	r.GET("/test-rotate", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "GET rotate test"})
-	})
+		// Analytics (admin only)
+		adminGroup.GET("/stats", func(c *gin.Context) {
+			// TODO: estatísticas globais
+			c.JSON(200, gin.H{"message": "global stats"})
+		})
+		adminGroup.GET("/usage", func(c *gin.Context) {
+			// TODO: uso da API
+			c.JSON(200, gin.H{"message": "api usage"})
+		})
+	}
 
-	// Teste GET com handler
-	r.GET("/test-rotate-handler-get", k.RotateTest)
+	// Tenant endpoints (protegidos por JWT + role TENANT_USER)
+	meGroup := r.Group("/me")
+	meGroup.Use(auth.AuthJWT(jwtService), auth.RequireTenantUser())
+	{
+		// Minhas API Keys
+		meGroup.GET("/apikeys", func(c *gin.Context) {
+			// TODO: listar minhas keys
+			c.JSON(200, gin.H{"message": "my api keys"})
+		})
+		meGroup.POST("/apikeys", func(c *gin.Context) {
+			// TODO: criar key
+			c.JSON(200, gin.H{"message": "create key"})
+		})
+		meGroup.DELETE("/apikeys/:id", func(c *gin.Context) {
+			// TODO: deletar key
+			c.JSON(200, gin.H{"message": "delete key"})
+		})
 
-	// Teste POST simples
-	r.POST("/test-rotate-post", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "POST rotate test"})
-	})
-
-	// Exemplo protegido por API Key
-	r.GET("/protected/apikey", auth.AuthAPIKey(apikeys), func(c *gin.Context) {
-		c.JSON(200, gin.H{"ok": true})
-	})
-
-	// GEO endpoints
-	geo := handlers.NewGeoHandler(estados, municipios)
-	r.GET("/geo/ufs", geo.ListUFs)                      // Lista todos os estados (com filtro ?q=)
-	r.GET("/geo/ufs/:sigla", geo.GetUF)                 // Busca estado por sigla
-	r.GET("/geo/municipios", geo.ListMunicipios)        // Lista municípios (com filtro ?uf= e ?q=)
-	r.GET("/geo/municipios/:uf", geo.ListMunicipiosByUF) // Lista municípios por UF
-	r.GET("/geo/municipios/id/:id", geo.GetMunicipio)   // Busca município por ID do IBGE
+		// Meu uso
+		meGroup.GET("/usage", func(c *gin.Context) {
+			// TODO: meu uso
+			c.JSON(200, gin.H{"message": "my usage"})
+		})
+	}
 
 	return r
 }

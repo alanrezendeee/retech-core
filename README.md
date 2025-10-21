@@ -2,6 +2,12 @@
 
 Centraliza **serviços utilitários** e **integrações públicas** para acelerar diversos projetos (web, mobile, backoffice). Foco em **estabilidade**, **observabilidade** e **padronização** de respostas.
 
+**Domínio**: `core.theretech.com.br`  
+**Versão**: 0.4.0  
+**Status**: 🟢 Em produção
+
+📚 **[Índice completo de documentação](docs/INDEX.md)**
+
 ---
 
 ## ✨ Objetivos

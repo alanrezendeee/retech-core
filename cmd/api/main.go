@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/bootstrap"
 	"github.com/theretech/retech-core/internal/config"
 	nethttp "github.com/theretech/retech-core/internal/http"
@@ -43,12 +44,21 @@ func main() {
 	// Repos
 	tenants := storage.NewTenantsRepo(m.DB)
 	apikeys := storage.NewAPIKeysRepo(m.DB)
+	users := storage.NewUsersRepo(m.DB)
 	estados := storage.NewEstadosRepo(m.DB)
 	municipios := storage.NewMunicipiosRepo(m.DB)
 
+	// JWT Service
+	jwtService := auth.NewJWTService(
+		cfg.JWTAccessSecret,
+		cfg.JWTRefreshSecret,
+		cfg.JWTAccessTTL,
+		cfg.JWTRefreshTTL,
+	)
+
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, health, apikeys, tenants, estados, municipios)
+	router := nethttp.NewRouter(log, m.DB, health, apikeys, tenants, users, estados, municipios, jwtService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,
