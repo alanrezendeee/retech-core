@@ -1,0 +1,1175 @@
+{
+	"info": {
+		"_postman_id": "retech-core-api-2025",
+		"name": "Retech Core API - Complete",
+		"description": "Collection completa para testar todas as funcionalidades da Retech Core API\n\n**Variáveis necessárias:**\n- `baseUrl`: https://api-core.theretech.com.br (produção) ou http://localhost:8080 (local)\n- `accessToken`: Preenchido automaticamente após login\n- `refreshToken`: Preenchido automaticamente após login\n- `tenantId`: ID do tenant para testes\n- `apiKey`: API Key para testes de endpoints GEO\n\n**Ordem de execução recomendada:**\n1. Auth → Login (Super Admin)\n2. Admin → Tenants → Create/List/Update\n3. Admin → API Keys → Create\n4. GEO → Testar endpoints com API Key\n5. Admin → Activity → Ver logs de atividades",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🔐 Auth",
+			"item": [
+				{
+					"name": "Login (Super Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Salvar tokens nas variáveis da collection",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', response.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', response.refreshToken);",
+									"    pm.collectionVariables.set('userId', response.user.id);",
+									"    console.log('✅ Login bem-sucedido!');",
+									"    console.log('👤 Usuário:', response.user.name);",
+									"    console.log('🔑 Token salvo');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@retech.com.br\",\n  \"password\": \"admin123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login como Super Admin.\n\n**Credenciais padrão:**\n- Email: admin@retech.com.br\n- Password: admin123456\n\n**Resposta:**\n- accessToken (15 min)\n- refreshToken (7 dias)\n- Dados do usuário"
+					},
+					"response": []
+				},
+				{
+					"name": "Register (Self-Service)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', response.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', response.refreshToken);",
+									"    pm.collectionVariables.set('tenantId', response.tenant.tenantId);",
+									"    console.log('✅ Registro bem-sucedido!');",
+									"    console.log('🏢 Tenant:', response.tenant.name);",
+									"    console.log('👤 Usuário:', response.user.name);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tenantName\": \"Minha Empresa\",\n  \"tenantEmail\": \"contato@minhaempresa.com\",\n  \"company\": \"Minha Empresa LTDA\",\n  \"purpose\": \"Integração de dados geográficos\",\n  \"userName\": \"João Silva\",\n  \"userEmail\": \"joao@minhaempresa.com\",\n  \"userPassword\": \"senha123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registro self-service de novo tenant + usuário.\n\n**Cria automaticamente:**\n- Tenant (empresa)\n- Primeiro usuário (TENANT_USER)\n- Retorna tokens JWT"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', response.accessToken);",
+									"    console.log('✅ Token renovado!');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Renova o accessToken usando refreshToken.\n\n**Quando usar:**\n- AccessToken expirou (401)\n- Antes de fazer requisições (preventivo)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Me",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Retorna dados do usuário logado.\n\n**Requer:** Token JWT válido"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de autenticação e autorização"
+		},
+		{
+			"name": "👑 Admin",
+			"item": [
+				{
+					"name": "Tenants",
+					"item": [
+						{
+							"name": "List All Tenants",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/tenants",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"tenants"
+									]
+								},
+								"description": "Lista todos os tenants do sistema.\n\n**Permissão:** SUPER_ADMIN"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Tenant by ID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/tenants/{{tenantId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"tenants",
+										"{{tenantId}}"
+									]
+								},
+								"description": "Busca um tenant específico por tenantId.\n\n**Permissão:** SUPER_ADMIN"
+							},
+							"response": []
+						},
+						{
+							"name": "Create Tenant",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    pm.collectionVariables.set('tenantId', response.tenant.tenantId);",
+											"    console.log('✅ Tenant criado:', response.tenant.name);",
+											"    console.log('🆔 TenantID:', response.tenant.tenantId);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Empresa Teste\",\n  \"email\": \"contato@empresateste.com\",\n  \"company\": \"Empresa Teste LTDA\",\n  \"purpose\": \"Testes de integração\",\n  \"active\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/tenants",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"tenants"
+									]
+								},
+								"description": "Cria um novo tenant (sem usuário).\n\n**Permissão:** SUPER_ADMIN\n\n**Campos opcionais:**\n- company\n- purpose\n- rateLimit (customizado)"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Tenant",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Empresa Teste Atualizada\",\n  \"active\": true,\n  \"rateLimit\": {\n    \"RequestsPerDay\": 5000,\n    \"RequestsPerMinute\": 100\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/tenants/{{tenantId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"tenants",
+										"{{tenantId}}"
+									]
+								},
+								"description": "Atualiza dados de um tenant.\n\n**Permissão:** SUPER_ADMIN\n\n**Campos atualizáveis:**\n- name, email, company, purpose\n- active (ativar/desativar)\n- rateLimit (personalizado)"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Tenant",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/tenants/{{tenantId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"tenants",
+										"{{tenantId}}"
+									]
+								},
+								"description": "Deleta um tenant.\n\n**Permissão:** SUPER_ADMIN\n\n**⚠️ ATENÇÃO:**\n- Tenant do SUPER_ADMIN não pode ser deletado\n- Deleta em cascata (usuários, API keys, etc)"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "API Keys",
+					"item": [
+						{
+							"name": "List All API Keys",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/apikeys",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"apikeys"
+									]
+								},
+								"description": "Lista todas as API Keys do sistema.\n\n**Permissão:** SUPER_ADMIN\n\n**Retorna:**\n- Todas as keys (ativas e revogadas)\n- Dados do tenant dono"
+							},
+							"response": []
+						},
+						{
+							"name": "Create API Key",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    pm.collectionVariables.set('apiKey', response.api_key);",
+											"    console.log('✅ API Key criada!');",
+											"    console.log('🔑 Key:', response.api_key);",
+											"    console.log('⏰ Expira em:', response.expiresAt);",
+											"    console.log('');",
+											"    console.log('⚠️  IMPORTANTE: Copie esta key agora!');",
+											"    console.log('Ela não será mostrada novamente.');",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"ownerId\": \"{{tenantId}}\",\n  \"scopes\": [\"geo:read\"],\n  \"days\": 90\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/apikeys",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"apikeys"
+									]
+								},
+								"description": "Cria uma nova API Key para um tenant.\n\n**Permissão:** SUPER_ADMIN\n\n**⚠️ IMPORTANTE:**\n- A key completa é retornada **apenas uma vez**\n- Salve imediatamente!\n- Formato: `{keyId}.{keySecret}`\n\n**Parâmetros:**\n- ownerId: tenantId do dono\n- scopes: permissões (ex: geo:read)\n- days: validade em dias (padrão: 90)"
+							},
+							"response": []
+						},
+						{
+							"name": "Revoke API Key",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"keyId\": \"cole-aqui-o-keyId-da-api-key\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/apikeys/revoke",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"apikeys",
+										"revoke"
+									]
+								},
+								"description": "Revoga (desativa) uma API Key.\n\n**Permissão:** SUPER_ADMIN\n\n**⚠️ ATENÇÃO:**\n- Ação irreversível!\n- Key não pode mais ser usada\n- Requests em andamento falharão"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Analytics",
+					"item": [
+						{
+							"name": "Get Admin Stats",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/stats",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"stats"
+									]
+								},
+								"description": "Estatísticas globais do sistema.\n\n**Permissão:** SUPER_ADMIN\n\n**Retorna:**\n- Total de tenants\n- Total de API Keys\n- Tenants/Keys ativos\n- Requests hoje/mês"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Usage",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/usage",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"usage"
+									]
+								},
+								"description": "Uso detalhado da API.\n\n**Permissão:** SUPER_ADMIN\n\n**Retorna:**\n- Uso por tenant\n- Endpoints mais usados\n- Histórico de requests"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Settings",
+					"item": [
+						{
+							"name": "Get Settings",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/settings",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"settings"
+									]
+								},
+								"description": "Busca configurações globais do sistema.\n\n**Permissão:** SUPER_ADMIN\n\n**Retorna:**\n- Rate limit padrão\n- Configurações CORS\n- TTLs dos tokens JWT\n- Info da API (versão, ambiente)"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Settings",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"defaultRateLimit\": {\n    \"RequestsPerDay\": 2000,\n    \"RequestsPerMinute\": 100\n  },\n  \"cors\": {\n    \"enabled\": true,\n    \"allowedOrigins\": [\n      \"https://core.theretech.com.br\",\n      \"http://localhost:3000\"\n    ]\n  },\n  \"jwt\": {\n    \"accessTokenTTL\": 900,\n    \"refreshTokenTTL\": 604800\n  },\n  \"api\": {\n    \"version\": \"1.0.0\",\n    \"environment\": \"production\",\n    \"maintenance\": false\n  }\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/settings",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"settings"
+									]
+								},
+								"description": "Atualiza configurações globais.\n\n**Permissão:** SUPER_ADMIN\n\n**⚠️ CUIDADO:**\n- Afeta todos os tenants novos\n- Mudanças em JWT/CORS afetam autenticação\n- Sempre testar antes em staging"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Activity Logs",
+					"item": [
+						{
+							"name": "Get Recent Activity",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/activity?limit=20",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"activity"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "20",
+											"description": "Número de atividades (max: 100)"
+										}
+									]
+								},
+								"description": "Lista atividades recentes do sistema.\n\n**Permissão:** SUPER_ADMIN\n\n**Retorna:**\n- Últimas ações (criar, editar, deletar)\n- Quem fez (actor)\n- O que foi afetado (resource)\n- Quando (timestamp)\n- IP e User-Agent"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Activity by User",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/activity/user/{{userId}}?limit=20",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"activity",
+										"user",
+										"{{userId}}"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "20"
+										}
+									]
+								},
+								"description": "Atividades de um usuário específico.\n\n**Permissão:** SUPER_ADMIN\n\n**Útil para:**\n- Auditoria de usuário\n- Investigar ações suspeitas"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Activity by Type",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/activity/type/tenant.created?limit=20",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"activity",
+										"type",
+										"tenant.created"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "20"
+										}
+									]
+								},
+								"description": "Atividades de um tipo específico.\n\n**Tipos disponíveis:**\n- tenant.created, tenant.updated, tenant.deleted\n- apikey.created, apikey.revoked\n- settings.updated\n- user.created, user.login"
+							},
+							"response": []
+						},
+						{
+							"name": "Get Activity by Resource",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{accessToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/activity/resource/tenant/{{tenantId}}?limit=20",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"activity",
+										"resource",
+										"tenant",
+										"{{tenantId}}"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "20"
+										}
+									]
+								},
+								"description": "Histórico de um recurso específico.\n\n**Exemplo:**\n- Todas as mudanças em um tenant\n- Histórico de uma API Key\n\n**Formato:** /resource/{type}/{id}"
+							},
+							"response": []
+						}
+					]
+				}
+			],
+			"description": "Endpoints administrativos (apenas SUPER_ADMIN)"
+		},
+		{
+			"name": "🗺️ GEO",
+			"item": [
+				{
+					"name": "List UFs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/geo/ufs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"geo",
+								"ufs"
+							]
+						},
+						"description": "Lista todos os estados brasileiros (27 UFs).\n\n**Autenticação:** API Key\n\n**Retorna:**\n- Sigla (SP, RJ, MG, ...)\n- Nome completo\n- Região (Sul, Sudeste, ...)\n- Código IBGE"
+					},
+					"response": []
+				},
+				{
+					"name": "Get UF by Sigla",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/geo/ufs/SP",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"geo",
+								"ufs",
+								"SP"
+							]
+						},
+						"description": "Busca um estado específico por sigla.\n\n**Autenticação:** API Key\n\n**Exemplo:** /geo/ufs/SP, /geo/ufs/RJ"
+					},
+					"response": []
+				},
+				{
+					"name": "List All Municípios",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/geo/municipios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"geo",
+								"municipios"
+							]
+						},
+						"description": "Lista todos os municípios brasileiros (5.570).\n\n**Autenticação:** API Key\n\n**⚠️ ATENÇÃO:**\n- Resposta grande (~2MB)\n- Use paginação ou filtro por UF"
+					},
+					"response": []
+				},
+				{
+					"name": "List Municípios by UF",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/geo/municipios/SP",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"geo",
+								"municipios",
+								"SP"
+							]
+						},
+						"description": "Lista municípios de um estado específico.\n\n**Autenticação:** API Key\n\n**Exemplo:** /geo/municipios/SP (645 municípios)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Município by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/geo/municipios/id/3550308",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"geo",
+								"municipios",
+								"id",
+								"3550308"
+							]
+						},
+						"description": "Busca um município por código IBGE.\n\n**Autenticação:** API Key\n\n**Exemplo:** 3550308 (São Paulo/SP)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints públicos de dados geográficos (requer API Key)"
+		},
+		{
+			"name": "👤 Me (Tenant User)",
+			"item": [
+				{
+					"name": "List My API Keys",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/me/apikeys",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"me",
+								"apikeys"
+							]
+						},
+						"description": "Lista minhas API Keys (do meu tenant).\n\n**Permissão:** TENANT_USER\n\n**Retorna:**\n- Apenas keys do meu tenant\n- Status (ativa/revogada)\n- Data de expiração"
+					},
+					"response": []
+				},
+				{
+					"name": "Create My API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('apiKey', response.api_key);",
+									"    console.log('✅ Sua API Key foi criada!');",
+									"    console.log('🔑 Key:', response.api_key);",
+									"    console.log('');",
+									"    console.log('⚠️  Copie agora! Não será mostrada novamente.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"scopes\": [\"geo:read\"],\n  \"days\": 90\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/me/apikeys",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"me",
+								"apikeys"
+							]
+						},
+						"description": "Cria uma API Key para mim.\n\n**Permissão:** TENANT_USER\n\n**Auto-preenche:**\n- ownerId (meu tenantId)\n- Respeita rate limit do meu plano"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete My API Key",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/me/apikeys/cole-aqui-o-keyId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"me",
+								"apikeys",
+								"cole-aqui-o-keyId"
+							]
+						},
+						"description": "Deleta uma das minhas API Keys.\n\n**Permissão:** TENANT_USER\n\n**Restrições:**\n- Só posso deletar minhas keys\n- Não posso deletar keys de outros tenants"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Usage",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/me/usage",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"me",
+								"usage"
+							]
+						},
+						"description": "Meu uso de API (requests).\n\n**Permissão:** TENANT_USER\n\n**Retorna:**\n- Requests hoje/mês\n- Limite do meu plano\n- Histórico de uso"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para usuários tenants (portal do desenvolvedor)"
+		},
+		{
+			"name": "🏥 Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Verifica se a API está online.\n\n**Público** (sem autenticação)\n\n**Retorna:**\n- status: \"ok\"\n- Conexão com MongoDB"
+					},
+					"response": []
+				},
+				{
+					"name": "Version",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/version",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"version"
+							]
+						},
+						"description": "Versão da API.\n\n**Público** (sem autenticação)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de status e saúde da API"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tenantId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
+

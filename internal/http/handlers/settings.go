@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
@@ -26,7 +27,7 @@ func NewSettingsHandler(settings *storage.SettingsRepo, activityRepo *storage.Ac
 // GET /admin/settings
 func (h *SettingsHandler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	settings, err := h.settings.Get(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -37,7 +38,7 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, settings)
 }
 
@@ -45,7 +46,7 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 // PUT /admin/settings
 func (h *SettingsHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	var settings domain.SystemSettings
 	if err := c.ShouldBindJSON(&settings); err != nil {
 		// Log detalhado do erro
@@ -58,10 +59,22 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Log dos valores recebidos
 	fmt.Printf("Settings recebidas: %+v\n", settings)
-	
+
+	// ⚠️ IMPORTANTE: O campo environment SEMPRE vem da variável ENV
+	// Não permitir que seja sobrescrito pelo frontend!
+	env := os.Getenv("ENV")
+	if env == "" {
+		env = os.Getenv("NODE_ENV")
+	}
+	if env == "" {
+		env = "development"
+	}
+	settings.API.Environment = env
+	fmt.Printf("✅ Environment forçado para: %s (da variável ENV)\n", env)
+
 	// Validações
 	if settings.DefaultRateLimit.RequestsPerDay < 1 || settings.DefaultRateLimit.RequestsPerDay > 1000000 {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -72,7 +85,7 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if settings.DefaultRateLimit.RequestsPerMinute < 1 || settings.DefaultRateLimit.RequestsPerMinute > 10000 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"type":   "https://retech-core/errors/validation-error",
@@ -82,7 +95,7 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if settings.JWT.AccessTokenTTL < 60 || settings.JWT.AccessTokenTTL > 3600 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"type":   "https://retech-core/errors/validation-error",
@@ -92,7 +105,7 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if settings.JWT.RefreshTokenTTL < 3600 || settings.JWT.RefreshTokenTTL > 2592000 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"type":   "https://retech-core/errors/validation-error",
@@ -102,7 +115,7 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if err := h.settings.Update(ctx, &settings); err != nil {
 		fmt.Printf("Erro ao atualizar settings no MongoDB: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -131,10 +144,9 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 			"apiVersion":       settings.API.Version,
 		},
 	)
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Configurações atualizadas com sucesso",
+		"message":  "Configurações atualizadas com sucesso",
 		"settings": settings,
 	})
 }
-

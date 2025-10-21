@@ -1,11 +1,21 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/theretech/retech-core/internal/auth"
+	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -99,23 +109,29 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	
-	// Criar API key
-	keyID := "rtc_" + time.Now().Format("20060102150405")
-	now := time.Now()
+	// ✅ Gerar API key REAL (mesmo algoritmo do admin)
+	keyId := uuid.NewString()
+	keySecret := randomBase32Tenant(32)
+	secret := os.Getenv("APIKEY_HASH_SECRET")
+	hash := hashKeyTenant(secret, keyId, keySecret)
+	
+	// Validade padrão: 90 dias
+	days := envIntTenant("APIKEY_TTL_DAYS", 90)
+	now := time.Now().UTC()
 
-	apikey := bson.M{
-		"keyId":     keyID,
-		"keyHash":   "hash_" + keyID, // TODO: implementar hash real
-		"scopes":    []string{"geo:read"},
-		"ownerId":   tenantID,
-		"name":      req.Name,
-		"expiresAt": now.Add(365 * 24 * time.Hour), // 1 ano
-		"revoked":   false,
-		"createdAt": now,
+	// Usar domain.APIKey para garantir consistência
+	k := &domain.APIKey{
+		KeyID:     keyId,
+		KeyHash:   hash,
+		OwnerID:   tenantID,
+		Scopes:    []string{"geo:read"},
+		ExpiresAt: now.Add(time.Duration(days) * 24 * time.Hour),
+		Revoked:   false,
+		CreatedAt: now,
 	}
 
-	result, err := h.db.DB.Collection("api_keys").InsertOne(ctx, apikey)
-	if err != nil {
+	if err := h.apikeys.Insert(ctx, k); err != nil {
+		fmt.Printf("❌ Erro ao inserir API key: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"type":   "https://retech-core/errors/internal-error",
 			"title":  "Internal Error",
@@ -125,11 +141,15 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 		return
 	}
 
-	apikey["_id"] = result.InsertedID
+	fmt.Printf("✅ API Key criada com sucesso para tenant %s\n", tenantID)
+	fmt.Printf("   keyId: %s\n", keyId)
+	fmt.Printf("   Full key: %s.%s\n", keyId, keySecret)
 
+	// ⚠️ IMPORTANTE: Retornar a chave COMPLETA apenas agora!
 	c.JSON(http.StatusCreated, gin.H{
-		"apikey": apikey,
-		"key":    keyID, // Mostrar apenas uma vez
+		"key":       keyId + "." + keySecret, // ← Chave completa!
+		"expiresAt": k.ExpiresAt,
+		"name":      req.Name,
 	})
 }
 
@@ -264,4 +284,32 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 		"byDay":          byDay,
 		"byEndpoint":     byEndpoint,
 	})
+}
+
+// ========================================
+// Funções auxiliares (mesmas do apikey.go)
+// ========================================
+
+func hashKeyTenant(secret, keyId, keySecret string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(keyId + "." + keySecret))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func envIntTenant(k string, def int) int {
+	if v := os.Getenv(k); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			return i
+		}
+	}
+	return def
+}
+
+func randomBase32Tenant(n int) string {
+	const a = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+	sb := strings.Builder{}
+	for i := 0; i < n; i++ {
+		sb.WriteByte(a[rand.Intn(len(a))])
+	}
+	return sb.String()
 }
