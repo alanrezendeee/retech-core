@@ -31,7 +31,7 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 
 		// Extrair informações
 		apiKey, _ := c.Get("api_key")
-		tenantID, _ := c.Get("tenantId")
+		tenantID, _ := c.Get("tenant_id") // ✅ Corrigido: snake_case (não camelCase)
 
 		// Se não tem API key, não loga (rota pública ou erro de auth)
 		apiKeyStr, ok := apiKey.(string)
@@ -39,10 +39,15 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 			return
 		}
 
+		tenantIDStr, ok := tenantID.(string)
+		if !ok || tenantIDStr == "" {
+			return // Sem tenant_id, não loga
+		}
+
 		now := time.Now()
 		log := domain.APIUsageLog{
 			APIKey:       apiKeyStr,
-			TenantID:     tenantID.(string),
+			TenantID:     tenantIDStr, // ✅ Usar a variável validada
 			Endpoint:     c.Request.URL.Path,
 			Method:       c.Request.Method,
 			StatusCode:   c.Writer.Status(),
@@ -64,4 +69,3 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 		}()
 	}
 }
-
