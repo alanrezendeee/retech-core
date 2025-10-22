@@ -77,9 +77,9 @@ func NewRouter(
 	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		auth.AuthAPIKey(apikeys), // Requer API Key válida
-		rateLimiter.Middleware(), // Aplica rate limiting
-		usageLogger.Middleware(), // Loga uso
+		auth.AuthAPIKey(apikeys),  // Requer API Key válida
+		rateLimiter.Middleware(),  // Aplica rate limiting
+		usageLogger.Middleware(),  // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)

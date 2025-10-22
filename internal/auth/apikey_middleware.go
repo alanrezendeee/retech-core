@@ -25,21 +25,26 @@ func AuthAPIKey(repo *storage.APIKeysRepo) gin.HandlerFunc {
 		raw := c.GetHeader("X-API-Key")
 		parts := strings.Split(raw, ".")
 		if len(parts) != 2 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error":"invalid api key format"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key format"})
 			return
 		}
 		keyId, keySecret := parts[0], parts[1]
 		k, err := repo.ByKeyID(c, keyId)
 		if err != nil || k == nil || k.Revoked {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error":"unknown api key"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unknown api key"})
 			return
 		}
-		if k.KeyHash != hashKey(secret, keyId, keySecret) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error":"invalid api key"})
-			return
-		}
-	
-		c.Next()
+	if k.KeyHash != hashKey(secret, keyId, keySecret) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
+		return
 	}
-}
 
+	// ✅ Adicionar API key e tenant_id ao contexto para outros middlewares
+	// NOTA: OwnerID na prática contém o TenantID (não o UserID)
+	// TODO: Futuramente, migrar para usar UserID e buscar o tenant do usuário
+	c.Set("api_key", raw)
+	c.Set("tenant_id", k.OwnerID) // OwnerID = TenantID na implementação atual
+
+	c.Next()
+}
+}

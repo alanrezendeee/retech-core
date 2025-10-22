@@ -31,9 +31,12 @@ func NewRateLimiter(db *mongo.Database, tenants *storage.TenantsRepo, settings *
 // Middleware aplica rate limiting baseado em API Key
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		fmt.Println("🔄 [RATE LIMITER] Middleware chamado!")
+
 		// Extrair API Key do contexto (já foi validada pelo middleware de API Key)
 		apiKeyValue, exists := c.Get("api_key")
 		if !exists {
+			fmt.Println("⚠️  [RATE LIMITER] Nenhuma API key no contexto, passando...")
 			// Se não tem API key, deixa passar (rota pública)
 			c.Next()
 			return
@@ -42,6 +45,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		// Extrair tenant_id do contexto
 		tenantIDValue, exists := c.Get("tenant_id")
 		if !exists {
+			fmt.Println("⚠️  [RATE LIMITER] Nenhum tenant_id no contexto, passando...")
 			// Se não tem tenant_id, deixa passar
 			c.Next()
 			return
@@ -50,37 +54,46 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		apiKey := apiKeyValue.(string)
 		tenantID := tenantIDValue.(string)
 
+		fmt.Printf("🔑 [RATE LIMITER] API Key: %s... | Tenant: %s\n", apiKey[:20], tenantID)
+
 		// Buscar configuração de rate limit para o tenant
 		config := rl.getRateLimitConfig(tenantID)
 
-		today := time.Now().Format("2006-01-02")
+		fmt.Printf("🔍 Rate Limit Config para tenant %s: %d/dia, %d/min\n", tenantID, config.RequestsPerDay, config.RequestsPerMinute)
 
-		// Buscar ou criar registro de rate limit
-		coll := rl.db.Collection("rate_limits")
 		ctx := context.Background()
+		now := time.Now()
+		today := now.Format("2006-01-02")
 
-		var rateLimit domain.RateLimit
-		err := coll.FindOne(ctx, bson.M{
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// VERIFICAR LIMITE DIÁRIO
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		collDaily := rl.db.Collection("rate_limits")
+		var rateLimitDaily domain.RateLimit
+
+		err := collDaily.FindOne(ctx, bson.M{
 			"apiKey": apiKey,
 			"date":   today,
-		}).Decode(&rateLimit)
+		}).Decode(&rateLimitDaily)
 
 		if err == mongo.ErrNoDocuments {
 			// Criar novo registro
-			rateLimit = domain.RateLimit{
+			rateLimitDaily = domain.RateLimit{
 				APIKey:    apiKey,
 				Date:      today,
 				Count:     0,
-				LastReset: time.Now(),
-				UpdatedAt: time.Now(),
+				LastReset: now,
+				UpdatedAt: now,
 			}
 		}
 
-		// Verificar limite diário
-		if rateLimit.Count >= config.RequestsPerDay {
-			c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", config.RequestsPerDay))
-			c.Header("X-RateLimit-Remaining", "0")
-			c.Header("X-RateLimit-Reset", getNextDayTimestamp())
+		// ✅ VERIFICAR ANTES DE INCREMENTAR!
+		if rateLimitDaily.Count >= config.RequestsPerDay {
+			fmt.Printf("🚫 Rate Limit DIÁRIO excedido: %d >= %d\n", rateLimitDaily.Count, config.RequestsPerDay)
+
+			c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", config.RequestsPerDay))
+			c.Header("X-RateLimit-Remaining-Day", "0")
+			c.Header("X-RateLimit-Reset-Day", getNextDayTimestamp())
 
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"type":   "https://retech-core/errors/rate-limit-exceeded",
@@ -92,33 +105,106 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		// Incrementar contador
-		rateLimit.Count++
-		rateLimit.UpdatedAt = time.Now()
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// VERIFICAR LIMITE POR MINUTO
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		collMinute := rl.db.Collection("rate_limits_minute")
+		currentMinute := now.Format("2006-01-02 15:04") // YYYY-MM-DD HH:MM
 
-		// Atualizar ou inserir
+		var rateLimitMinute domain.RateLimit
+		err = collMinute.FindOne(ctx, bson.M{
+			"apiKey": apiKey,
+			"date":   currentMinute,
+		}).Decode(&rateLimitMinute)
+
+		if err == mongo.ErrNoDocuments {
+			rateLimitMinute = domain.RateLimit{
+				APIKey:    apiKey,
+				Date:      currentMinute,
+				Count:     0,
+				LastReset: now,
+				UpdatedAt: now,
+			}
+		}
+
+		// ✅ VERIFICAR LIMITE POR MINUTO ANTES DE INCREMENTAR!
+		if rateLimitMinute.Count >= config.RequestsPerMinute {
+			fmt.Printf("🚫 Rate Limit POR MINUTO excedido: %d >= %d\n", rateLimitMinute.Count, config.RequestsPerMinute)
+
+			c.Header("X-RateLimit-Limit-Minute", fmt.Sprintf("%d", config.RequestsPerMinute))
+			c.Header("X-RateLimit-Remaining-Minute", "0")
+			c.Header("X-RateLimit-Reset-Minute", getNextMinuteTimestamp())
+
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"type":   "https://retech-core/errors/rate-limit-exceeded",
+				"title":  "Rate Limit Exceeded (Per Minute)",
+				"status": http.StatusTooManyRequests,
+				"detail": fmt.Sprintf("Limite de %d requests por minuto excedido. Tente novamente em alguns segundos.", config.RequestsPerMinute),
+			})
+			c.Abort()
+			return
+		}
+
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// INCREMENTAR CONTADORES (APÓS VERIFICAÇÃO!)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+		// Incrementar contador diário
+		rateLimitDaily.Count++
+		rateLimitDaily.UpdatedAt = now
+
 		opts := options.Update().SetUpsert(true)
-		_, err = coll.UpdateOne(ctx, bson.M{
+		_, err = collDaily.UpdateOne(ctx, bson.M{
 			"apiKey": apiKey,
 			"date":   today,
 		}, bson.M{
-			"$set": rateLimit,
+			"$set": rateLimitDaily,
 		}, opts)
 
 		if err != nil {
-			// Log erro mas não bloqueia
-			fmt.Printf("Erro ao atualizar rate limit: %v\n", err)
+			fmt.Printf("⚠️  Erro ao atualizar rate limit diário: %v\n", err)
 		}
 
-		// Adicionar headers de rate limit
-		remaining := config.RequestsPerDay - rateLimit.Count
-		if remaining < 0 {
-			remaining = 0
+		// Incrementar contador por minuto
+		rateLimitMinute.Count++
+		rateLimitMinute.UpdatedAt = now
+
+		_, err = collMinute.UpdateOne(ctx, bson.M{
+			"apiKey": apiKey,
+			"date":   currentMinute,
+		}, bson.M{
+			"$set": rateLimitMinute,
+		}, opts)
+
+		if err != nil {
+			fmt.Printf("⚠️  Erro ao atualizar rate limit por minuto: %v\n", err)
 		}
 
-		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", config.RequestsPerDay))
-		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
-		c.Header("X-RateLimit-Reset", getNextDayTimestamp())
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// ADICIONAR HEADERS DE RATE LIMIT
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+		remainingDay := config.RequestsPerDay - rateLimitDaily.Count
+		if remainingDay < 0 {
+			remainingDay = 0
+		}
+
+		remainingMinute := config.RequestsPerMinute - rateLimitMinute.Count
+		if remainingMinute < 0 {
+			remainingMinute = 0
+		}
+
+		// Headers diários
+		c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", config.RequestsPerDay))
+		c.Header("X-RateLimit-Remaining-Day", fmt.Sprintf("%d", remainingDay))
+		c.Header("X-RateLimit-Reset-Day", getNextDayTimestamp())
+
+		// Headers por minuto
+		c.Header("X-RateLimit-Limit-Minute", fmt.Sprintf("%d", config.RequestsPerMinute))
+		c.Header("X-RateLimit-Remaining-Minute", fmt.Sprintf("%d", remainingMinute))
+		c.Header("X-RateLimit-Reset-Minute", getNextMinuteTimestamp())
+
+		fmt.Printf("✅ Request permitida. Restante: %d/dia, %d/min\n", remainingDay, remainingMinute)
 
 		c.Next()
 	}
@@ -154,4 +240,11 @@ func getNextDayTimestamp() string {
 	now := time.Now()
 	tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 	return fmt.Sprintf("%d", tomorrow.Unix())
+}
+
+// getNextMinuteTimestamp retorna timestamp Unix do próximo minuto
+func getNextMinuteTimestamp() string {
+	now := time.Now()
+	nextMinute := now.Add(time.Minute).Truncate(time.Minute)
+	return fmt.Sprintf("%d", nextMinute.Unix())
 }
