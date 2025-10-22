@@ -66,20 +66,20 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		today := now.Format("2006-01-02")
 
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-		// VERIFICAR LIMITE DIÁRIO
+		// VERIFICAR LIMITE DIÁRIO (POR TENANT, NÃO POR API KEY!)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		collDaily := rl.db.Collection("rate_limits")
 		var rateLimitDaily domain.RateLimit
 
 		err := collDaily.FindOne(ctx, bson.M{
-			"apiKey": apiKey,
-			"date":   today,
+			"tenantId": tenantID, // ✅ POR TENANT (não por API key!)
+			"date":     today,
 		}).Decode(&rateLimitDaily)
 
 		if err == mongo.ErrNoDocuments {
 			// Criar novo registro
 			rateLimitDaily = domain.RateLimit{
-				APIKey:    apiKey,
+				APIKey:    tenantID, // Usando APIKey field para tenantID (legacy compatibility)
 				Date:      today,
 				Count:     0,
 				LastReset: now,
@@ -89,7 +89,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		// ✅ VERIFICAR ANTES DE INCREMENTAR!
 		if rateLimitDaily.Count >= config.RequestsPerDay {
-			fmt.Printf("🚫 Rate Limit DIÁRIO excedido: %d >= %d\n", rateLimitDaily.Count, config.RequestsPerDay)
+			fmt.Printf("🚫 Rate Limit DIÁRIO excedido para tenant %s: %d >= %d\n", tenantID, rateLimitDaily.Count, config.RequestsPerDay)
 
 			c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", config.RequestsPerDay))
 			c.Header("X-RateLimit-Remaining-Day", "0")
@@ -106,20 +106,20 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-		// VERIFICAR LIMITE POR MINUTO
+		// VERIFICAR LIMITE POR MINUTO (POR TENANT, NÃO POR API KEY!)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		collMinute := rl.db.Collection("rate_limits_minute")
 		currentMinute := now.Format("2006-01-02 15:04") // YYYY-MM-DD HH:MM
 
 		var rateLimitMinute domain.RateLimit
 		err = collMinute.FindOne(ctx, bson.M{
-			"apiKey": apiKey,
-			"date":   currentMinute,
+			"tenantId": tenantID, // ✅ POR TENANT (não por API key!)
+			"date":     currentMinute,
 		}).Decode(&rateLimitMinute)
 
 		if err == mongo.ErrNoDocuments {
 			rateLimitMinute = domain.RateLimit{
-				APIKey:    apiKey,
+				APIKey:    tenantID, // Usando APIKey field para tenantID (legacy compatibility)
 				Date:      currentMinute,
 				Count:     0,
 				LastReset: now,
@@ -129,7 +129,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		// ✅ VERIFICAR LIMITE POR MINUTO ANTES DE INCREMENTAR!
 		if rateLimitMinute.Count >= config.RequestsPerMinute {
-			fmt.Printf("🚫 Rate Limit POR MINUTO excedido: %d >= %d\n", rateLimitMinute.Count, config.RequestsPerMinute)
+			fmt.Printf("🚫 Rate Limit POR MINUTO excedido para tenant %s: %d >= %d\n", tenantID, rateLimitMinute.Count, config.RequestsPerMinute)
 
 			c.Header("X-RateLimit-Limit-Minute", fmt.Sprintf("%d", config.RequestsPerMinute))
 			c.Header("X-RateLimit-Remaining-Minute", "0")
@@ -155,8 +155,8 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		opts := options.Update().SetUpsert(true)
 		_, err = collDaily.UpdateOne(ctx, bson.M{
-			"apiKey": apiKey,
-			"date":   today,
+			"tenantId": tenantID, // ✅ POR TENANT
+			"date":     today,
 		}, bson.M{
 			"$set": rateLimitDaily,
 		}, opts)
@@ -170,8 +170,8 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		rateLimitMinute.UpdatedAt = now
 
 		_, err = collMinute.UpdateOne(ctx, bson.M{
-			"apiKey": apiKey,
-			"date":   currentMinute,
+			"tenantId": tenantID, // ✅ POR TENANT
+			"date":     currentMinute,
 		}, bson.M{
 			"$set": rateLimitMinute,
 		}, opts)

@@ -137,9 +137,10 @@ func NewRouter(
 		meGroup.POST("/apikeys/:id/rotate", tenantHandler.RotateAPIKey)
 		meGroup.DELETE("/apikeys/:id", tenantHandler.DeleteAPIKey)
 
-		// Meu uso
-		meGroup.GET("/usage", tenantHandler.GetMyUsage)
-	}
+	// Meu uso
+	meGroup.GET("/stats", tenantHandler.GetMyStats)   // Métricas rápidas para dashboard
+	meGroup.GET("/usage", tenantHandler.GetMyUsage)    // Uso detalhado com gráficos
+}
 
 	return r
 }

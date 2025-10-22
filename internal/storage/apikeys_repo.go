@@ -41,3 +41,10 @@ func (r *APIKeysRepo) ByKeyIDAny(ctx context.Context, keyId string) (*domain.API
 	return &a, err
 }
 
+// CountByOwner retorna total de API keys ativas de um tenant
+func (r *APIKeysRepo) CountByOwner(ctx context.Context, ownerId string) (int64, error) {
+	return r.col.CountDocuments(ctx, bson.M{
+		"ownerId": ownerId,
+		"revoked": false,
+	})
+}

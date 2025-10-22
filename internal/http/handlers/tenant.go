@@ -395,6 +395,88 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 	})
 }
 
+// GetMyStats retorna métricas rápidas para o dashboard
+// GET /me/stats
+func (h *TenantHandler) GetMyStats(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 1. Total de API Keys ativas
+	activeKeys, _ := h.apikeys.CountByOwner(ctx, tenantID)
+
+	// 2. Buscar rate limit atual do tenant
+	today := time.Now().Format("2006-01-02")
+	var rateLimit domain.RateLimit
+	err := h.db.DB.Collection("rate_limits").FindOne(ctx, bson.M{
+		"tenantId": tenantID,
+		"date":     today,
+	}).Decode(&rateLimit)
+
+	requestsToday := int64(0)
+	if err == nil {
+		requestsToday = int64(rateLimit.Count)
+	}
+
+	// 3. Buscar configuração do tenant (rate limit personalizado ou padrão)
+	var tenant bson.M
+	err = h.db.DB.Collection("tenants").FindOne(ctx, bson.M{"tenantId": tenantID}).Decode(&tenant)
+	dailyLimit := int64(1000) // Padrão
+	if err == nil {
+		if rl, ok := tenant["rateLimit"].(bson.M); ok {
+			if rpd, ok := rl["RequestsPerDay"].(int32); ok {
+				dailyLimit = int64(rpd)
+			} else if rpd, ok := rl["RequestsPerDay"].(int64); ok {
+				dailyLimit = rpd
+			}
+		}
+	}
+
+	// 4. Calcular remaining e percentage
+	remaining := dailyLimit - requestsToday
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	percentage := float64(0)
+	if dailyLimit > 0 {
+		percentage = (float64(requestsToday) / float64(dailyLimit)) * 100
+	}
+
+	// 5. Requests do mês (aproximado via rate_limits)
+	startOfMonth := time.Now().Format("2006-01")
+	var rateLimitsMonth []domain.RateLimit
+	cursor, _ := h.db.DB.Collection("rate_limits").Find(ctx, bson.M{
+		"tenantId": tenantID,
+		"date":     bson.M{"$regex": "^" + startOfMonth},
+	})
+	defer cursor.Close(ctx)
+	cursor.All(ctx, &rateLimitsMonth)
+
+	requestsMonth := int64(0)
+	for _, rl := range rateLimitsMonth {
+		requestsMonth += int64(rl.Count)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"activeKeys":     activeKeys,
+		"requestsToday":  requestsToday,
+		"requestsMonth":  requestsMonth,
+		"dailyLimit":     dailyLimit,
+		"remaining":      remaining,
+		"percentageUsed": percentage,
+	})
+}
+
 // ========================================
 // Funções auxiliares (mesmas do apikey.go)
 // ========================================
