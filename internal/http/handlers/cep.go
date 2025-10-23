@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,11 +17,15 @@ import (
 )
 
 type CEPHandler struct {
-	db *storage.Mongo
+	db       *storage.Mongo
+	settings *storage.SettingsRepo
 }
 
-func NewCEPHandler(db *storage.Mongo) *CEPHandler {
-	return &CEPHandler{db: db}
+func NewCEPHandler(db *storage.Mongo, settings *storage.SettingsRepo) *CEPHandler {
+	return &CEPHandler{
+		db:       db,
+		settings: settings,
+	}
 }
 
 // CEPResponse representa o retorno da API de CEP
@@ -61,18 +66,27 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// 1. Tentar buscar no cache (7 dias)
-	var cached CEPResponse
-	collection := h.db.DB.Collection("cep_cache")
+	// Carregar configurações de cache
+	settings, err := h.settings.Get(ctx)
+	if err != nil {
+		settings = domain.GetDefaultSettings() // Fallback para padrões
+	}
 
-	err := collection.FindOne(ctx, bson.M{"cep": cep}).Decode(&cached)
-	if err == nil {
-		// Verificar se cache ainda é válido (7 dias)
-		cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
-		if time.Since(cachedTime) < 7*24*time.Hour {
-			cached.Source = "cache"
-			c.JSON(http.StatusOK, cached)
-			return
+	// 1. Tentar buscar no cache (se habilitado)
+	collection := h.db.DB.Collection("cep_cache")
+	
+	if settings.Cache.Enabled {
+		var cached CEPResponse
+		err := collection.FindOne(ctx, bson.M{"cep": cep}).Decode(&cached)
+		if err == nil {
+			// Verificar se cache ainda é válido (usar TTL dinâmico)
+			cacheTTL := time.Duration(settings.Cache.CEPTTLDays) * 24 * time.Hour
+			cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
+			if time.Since(cachedTime) < cacheTTL {
+				cached.Source = "cache"
+				c.JSON(http.StatusOK, cached)
+				return
+			}
 		}
 	}
 
@@ -81,20 +95,22 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	if err == nil && response.CEP != "" {
 		response.Source = "viacep"
 		response.CachedAt = time.Now().Format(time.RFC3339)
-
+		
 		// ✅ NORMALIZAR CEP para salvar sem traço no cache
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
-		// Salvar no cache (com upsert!)
-		_, err := collection.UpdateOne(
-			ctx,
-			bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
-			bson.M{"$set": response},
-			options.Update().SetUpsert(true), // ✅ Cria se não existir!
-		)
-		if err != nil {
-			fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+		// Salvar no cache (se habilitado)
+		if settings.Cache.Enabled {
+			_, err := collection.UpdateOne(
+				ctx,
+				bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
+				bson.M{"$set": response},
+				options.Update().SetUpsert(true), // ✅ Cria se não existir!
+			)
+			if err != nil {
+				fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+			}
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -106,20 +122,22 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	if err == nil && response.CEP != "" {
 		response.Source = "brasilapi"
 		response.CachedAt = time.Now().Format(time.RFC3339)
-
+		
 		// ✅ NORMALIZAR CEP para salvar sem traço no cache
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
-		// Salvar no cache (com upsert!)
-		_, err := collection.UpdateOne(
-			ctx,
-			bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
-			bson.M{"$set": response},
-			options.Update().SetUpsert(true), // ✅ Cria se não existir!
-		)
-		if err != nil {
-			fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+		// Salvar no cache (se habilitado)
+		if settings.Cache.Enabled {
+			_, err := collection.UpdateOne(
+				ctx,
+				bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
+				bson.M{"$set": response},
+				options.Update().SetUpsert(true), // ✅ Cria se não existir!
+			)
+			if err != nil {
+				fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+			}
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -251,5 +269,55 @@ func (h *CEPHandler) GetStats(c *gin.Context) {
 		"totalRequests":   total,
 		"requestsToday":   today_count,
 		"avgResponseTime": avgTime,
+	})
+}
+
+// GetCacheStats retorna estatísticas do cache de CEP
+// GET /admin/cache/cep/stats
+func (h *CEPHandler) GetCacheStats(c *gin.Context) {
+	ctx := c.Request.Context()
+	collection := h.db.DB.Collection("cep_cache")
+
+	// Total de CEPs no cache
+	totalCached, _ := collection.CountDocuments(ctx, bson.M{})
+
+	// CEPs adicionados nas últimas 24h
+	yesterday := time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
+	recentCached, _ := collection.CountDocuments(ctx, bson.M{
+		"cachedAt": bson.M{"$gte": yesterday},
+	})
+
+	// Carregar configurações
+	settings, err := h.settings.Get(ctx)
+	if err != nil {
+		settings = domain.GetDefaultSettings()
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"totalCached":   totalCached,
+		"recentCached":  recentCached, // últimas 24h
+		"cacheEnabled":  settings.Cache.Enabled,
+		"cacheTTLDays":  settings.Cache.CEPTTLDays,
+		"autoCleanup":   settings.Cache.AutoCleanup,
+	})
+}
+
+// ClearCache limpa o cache de CEP manualmente
+// DELETE /admin/cache/cep
+func (h *CEPHandler) ClearCache(c *gin.Context) {
+	ctx := c.Request.Context()
+	collection := h.db.DB.Collection("cep_cache")
+
+	result, err := collection.DeleteMany(ctx, bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Erro ao limpar cache",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Cache limpo com sucesso",
+		"deletedCount":  result.DeletedCount,
 	})
 }

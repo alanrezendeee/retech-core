@@ -135,6 +135,33 @@ func MigrateSettings(ctx context.Context, db *mongo.Database, log zerolog.Logger
 			
 			log.Info().Msg("Campo contact adicionado com sucesso!")
 		}
+		
+		// Verificar se settings tem o campo cache
+		if _, hasCache := settings["cache"]; !hasCache {
+			log.Info().Msg("Adicionando campo cache nas configurações...")
+			
+			_, err = db.Collection("system_settings").UpdateOne(
+				ctx,
+				bson.M{"_id": "system-settings-singleton"},
+				bson.M{
+					"$set": bson.M{
+						"cache": bson.M{
+							"enabled":     true,
+							"cepTtlDays":  7,
+							"maxSizeMb":   100,
+							"autoCleanup": true,
+						},
+					},
+				},
+			)
+			
+			if err != nil {
+				log.Error().Err(err).Msg("Erro ao migrar campo cache")
+				return err
+			}
+			
+			log.Info().Msg("Campo cache adicionado com sucesso!")
+		}
 	}
 
 	log.Info().Msg("Migração de configurações concluída")

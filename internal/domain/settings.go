@@ -24,6 +24,9 @@ type SystemSettings struct {
 	// Contato/Vendas
 	Contact ContactConfig `bson:"contact" json:"contact"`
 
+	// Cache
+	Cache CacheConfig `bson:"cache" json:"cache"`
+
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 }
@@ -52,6 +55,14 @@ type ContactConfig struct {
 	WhatsApp string `bson:"whatsapp" json:"whatsapp"` // Formato: 48999616679
 	Email    string `bson:"email" json:"email"`
 	Phone    string `bson:"phone" json:"phone"`
+}
+
+// CacheConfig define a configuração de cache
+type CacheConfig struct {
+	Enabled     bool `bson:"enabled" json:"enabled"`           // Habilitar/Desabilitar cache globalmente
+	CEPTTLDays  int  `bson:"cepTtlDays" json:"cepTtlDays"`     // TTL do cache de CEP em dias (1-365)
+	MaxSizeMB   int  `bson:"maxSizeMb" json:"maxSizeMb"`       // Tamanho máximo do cache em MB (futuro)
+	AutoCleanup bool `bson:"autoCleanup" json:"autoCleanup"`   // Limpeza automática via TTL index
 }
 
 // GetDefaultSettings retorna as configurações padrão do sistema
@@ -92,6 +103,12 @@ func GetDefaultSettings() *SystemSettings {
 			Email:    "suporte@theretech.com.br",
 			Phone:    "+55 48 99961-6679",
 		},
+		Cache: CacheConfig{
+			Enabled:     true, // ✅ Cache habilitado por padrão
+			CEPTTLDays:  7,    // 7 dias (padrão razoável)
+			MaxSizeMB:   100,  // 100MB (futuro: monitoramento)
+			AutoCleanup: true, // MongoDB TTL index ativo
+		},
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -104,4 +121,5 @@ type UpdateSystemSettingsRequest struct {
 	JWT              *JWTConfig       `json:"jwt,omitempty"`
 	API              *APIConfig       `json:"api,omitempty"`
 	Contact          *ContactConfig   `json:"contact,omitempty"`
+	Cache            *CacheConfig     `json:"cache,omitempty"`
 }

@@ -96,7 +96,7 @@ func NewRouter(
 	}
 
 	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção)
-	cepHandler := handlers.NewCEPHandler(m)
+	cepHandler := handlers.NewCEPHandler(m, settings)
 	cepGroup := r.Group("/cep")
 	cepGroup.Use(
 		maintenanceMiddleware.Middleware(), // Verifica manutenção
@@ -137,6 +137,10 @@ func NewRouter(
 		settingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
 		adminGroup.GET("/settings", settingsHandler.Get)
 		adminGroup.PUT("/settings", settingsHandler.Update)
+
+		// Cache Management (admin only)
+		adminGroup.GET("/cache/cep/stats", cepHandler.GetCacheStats)
+		adminGroup.DELETE("/cache/cep", cepHandler.ClearCache)
 
 		// Activity Logs (admin only)
 		activityHandler := handlers.NewActivityHandler(activityLogs)
