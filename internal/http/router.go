@@ -56,8 +56,9 @@ func NewRouter(
 	// Middlewares globais
 	rateLimiter := middleware.NewRateLimiter(m.DB, tenants, settings)
 	usageLogger := middleware.NewUsageLogger(m.DB)
+	maintenanceMiddleware := middleware.NewMaintenanceMiddleware(settings)
 
-	// Rotas públicas (sem autenticação)
+	// Rotas públicas (sem autenticação e sem manutenção)
 	r.GET("/health", health.Get)
 	r.GET("/version", handlers.Version)
 	r.GET("/docs", handlers.DocsHTML)
@@ -73,13 +74,14 @@ func NewRouter(
 		authGroup.GET("/me", auth.AuthJWT(jwtService), authHandler.Me)
 	}
 
-	// GEO endpoints (protegidos por API Key + rate limit + logging)
+	// GEO endpoints (protegidos por API Key + rate limit + logging + manutenção)
 	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		auth.AuthAPIKey(apikeys), // Requer API Key válida
-		rateLimiter.Middleware(), // Aplica rate limiting
-		usageLogger.Middleware(), // Loga uso
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)
