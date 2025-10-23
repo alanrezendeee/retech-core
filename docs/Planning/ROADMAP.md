@@ -8,17 +8,17 @@
 ## 📊 PROGRESSO GERAL
 
 ```
-██████░░░░░░░░░░░░░░░ 26% (8/31 APIs)
+████████░░░░░░░░░░░░░ 29% (9/31 APIs)
 
 Fase 1: ████████████ 100% ✅
-Fase 2: ██░░░░░░░░░░  17% 🔵 (1/6)
+Fase 2: ████░░░░░░░░  33% 🔵 (2/6)
 Fase 3: ░░░░░░░░░░░░   0% ⚪
 Fase 4: ░░░░░░░░░░░░   0% ⚪
 ```
 
 **APIs Totais:** 31  
-**Disponíveis:** 2 (Geografia + CEP) 🚀  
-**Em Desenvolvimento:** 5 (Fase 2)  
+**Disponíveis:** 3 (Geografia + CEP + CNPJ) 🚀  
+**Em Desenvolvimento:** 4 (Fase 2)  
 **Planejadas:** 24
 
 ---
@@ -61,7 +61,7 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 
 ## 🔵 FASE 2 - DADOS ESSENCIAIS (0-3 MESES)
 
-**Meta:** 6 APIs | **Status:** 1/6 Concluída (17%)
+**Meta:** 6 APIs | **Status:** 2/6 Concluídas (33%)
 
 ### **📮 CEP (DISPONÍVEL)** ✅
 - [x] `GET /cep/:codigo` - Busca por CEP
@@ -73,12 +73,18 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 - [x] Performance: ~5ms (cache) / ~50ms (ViaCEP)
 - [x] Admin: Configurações de cache editáveis
 
-### **🏢 CNPJ**
-- [ ] `GET /cnpj/:numero` - Consulta CNPJ
-- [ ] Fonte: Receita Federal (dados públicos)
-- [ ] Scraping: Portal Receita + Brasil API
-- [ ] Cache local: 30 dias
-- [ ] Dados: razão social, sócios, atividades, situação
+### **🏢 CNPJ (DISPONÍVEL)** ✅
+- [x] `GET /cnpj/:numero` - Consulta CNPJ
+- [x] Fonte: Brasil API (gratuita, Receita Federal)
+- [x] Fallback: ReceitaWS
+- [x] Cache local: 30 dias
+- [x] Validação: Dígito verificador
+- [x] Dados: razão social, nome fantasia, situação
+- [x] QSA: Quadro de sócios e administradores
+- [x] CNAEs: Atividade principal + secundárias
+- [x] Endereço completo + contatos
+- [x] Performance: ~10ms (cache) / ~200ms (Brasil API)
+- [x] Admin: Stats + Clear cache
 
 ### **💵 Moedas**
 - [ ] `GET /moedas/cotacao` - Cotações em tempo real
@@ -269,24 +275,37 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 - Performance: 95% das requests em <10ms (cache)
 - Normalização automática de formato
 
+### **✅ API CNPJ Implementada** 🆕
+- Endpoint `/cnpj/:numero` funcional
+- Brasil API + ReceitaWS (fallback)
+- Validação de dígito verificador
+- QSA (Quadro de Sócios e Administradores)
+- CNAEs completos (principal + secundários)
+- Endereço + contatos + capital social
+- Cache 30 dias (otimizado para empresas)
+- Performance: ~10ms (cache) / ~200ms (Brasil API)
+
 ### **✅ Sistema de Cache Configurável**
 - Admin pode ajustar TTL (1-365 dias)
 - Toggle enable/disable global
 - Limpeza automática (MongoDB TTL Index)
-- Limpeza manual com confirmação
+- Limpeza manual com AlertDialog
 - Stats em tempo real (total cached, recent 24h)
+- Suporte para CEP e CNPJ
 
 ### **✅ Settings Completas**
 - Contato/Vendas (WhatsApp dinâmico)
 - Cache configurável por API
 - Migration automática de schemas antigos
-- Todas as configs persistem corretamente
+- Bug fix: contact e cache agora salvam corretamente
+- Todas as configs persistem entre reloads
 
 ### **✅ Melhorias de UX**
 - AlertDialog para confirmações críticas
 - Auto-refresh de métricas
 - Tratamento de erros aprimorado
 - Feedback visual em todas as ações
+- Landing page com 3 APIs em destaque
 
 ---
 
