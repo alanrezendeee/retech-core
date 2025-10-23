@@ -371,6 +371,17 @@ func (h *TenantHandler) GetMyConfig(c *gin.Context) {
 				},
 			},
 			{
+				"category": "CNPJ",
+				"items": []gin.H{
+					{
+						"method":      "GET",
+						"path":        "/cnpj/:numero",
+						"description": "Consulta CNPJ da Receita Federal (Brasil API + ReceitaWS)",
+						"available":   true,
+					},
+				},
+			},
+			{
 				"category": "Geografia",
 				"items": []gin.H{
 					{
