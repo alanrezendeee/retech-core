@@ -82,10 +82,14 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.Source = "viacep"
 		response.CachedAt = time.Now().Format(time.RFC3339)
 
+		// ✅ NORMALIZAR CEP para salvar sem traço no cache
+		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
+		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
+
 		// Salvar no cache (com upsert!)
 		_, err := collection.UpdateOne(
 			ctx,
-			bson.M{"cep": cep},
+			bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
 			bson.M{"$set": response},
 			options.Update().SetUpsert(true), // ✅ Cria se não existir!
 		)
@@ -103,10 +107,14 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.Source = "brasilapi"
 		response.CachedAt = time.Now().Format(time.RFC3339)
 
+		// ✅ NORMALIZAR CEP para salvar sem traço no cache
+		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
+		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
+
 		// Salvar no cache (com upsert!)
 		_, err := collection.UpdateOne(
 			ctx,
-			bson.M{"cep": cep},
+			bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
 			bson.M{"$set": response},
 			options.Update().SetUpsert(true), // ✅ Cria se não existir!
 		)
