@@ -1,24 +1,24 @@
 # 🚀 ROADMAP RETECH CORE API
 
 **Atualizado:** 23 de Outubro de 2025  
-**Status:** Fase 1 Concluída ✅ | Fase 2 Iniciando 🔵
+**Status:** Fase 1 Concluída ✅ | Fase 2 Em Andamento 🔵
 
 ---
 
 ## 📊 PROGRESSO GERAL
 
 ```
-█████░░░░░░░░░░░░░░░░ 23% (7/31 APIs)
+██████░░░░░░░░░░░░░░░ 26% (8/31 APIs)
 
 Fase 1: ████████████ 100% ✅
-Fase 2: ░░░░░░░░░░░░   0% 🔵
+Fase 2: ██░░░░░░░░░░  17% 🔵 (1/6)
 Fase 3: ░░░░░░░░░░░░   0% ⚪
 Fase 4: ░░░░░░░░░░░░   0% ⚪
 ```
 
 **APIs Totais:** 31  
-**Disponíveis:** 1 (Geografia)  
-**Em Desenvolvimento:** 6 (Fase 2)  
+**Disponíveis:** 2 (Geografia + CEP) 🚀  
+**Em Desenvolvimento:** 5 (Fase 2)  
 **Planejadas:** 24
 
 ---
@@ -61,14 +61,17 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 
 ## 🔵 FASE 2 - DADOS ESSENCIAIS (0-3 MESES)
 
-**Meta:** 6 APIs | **Status:** Planejado
+**Meta:** 6 APIs | **Status:** 1/6 Concluída (17%)
 
-### **📮 CEP**
-- [ ] `GET /cep/:codigo` - Busca por CEP
-- [ ] Integração: ViaCEP (gratuito)
-- [ ] Fallback: Brasil API
-- [ ] Cache: 7 dias
-- [ ] Coordenadas geográficas
+### **📮 CEP (DISPONÍVEL)** ✅
+- [x] `GET /cep/:codigo` - Busca por CEP
+- [x] Integração: ViaCEP (gratuito)
+- [x] Fallback: Brasil API
+- [x] Cache: 7 dias (configurável via admin)
+- [x] Coordenadas geográficas
+- [x] Normalização automática (com/sem traço)
+- [x] Performance: ~5ms (cache) / ~50ms (ViaCEP)
+- [x] Admin: Configurações de cache editáveis
 
 ### **🏢 CNPJ**
 - [ ] `GET /cnpj/:numero` - Consulta CNPJ
@@ -258,6 +261,35 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 
 ---
 
+## 📝 ÚLTIMAS ATUALIZAÇÕES (Out/2025)
+
+### **✅ API CEP Implementada**
+- Endpoint `/cep/:codigo` funcional
+- Cache com ViaCEP + Brasil API (fallback)
+- Performance: 95% das requests em <10ms (cache)
+- Normalização automática de formato
+
+### **✅ Sistema de Cache Configurável**
+- Admin pode ajustar TTL (1-365 dias)
+- Toggle enable/disable global
+- Limpeza automática (MongoDB TTL Index)
+- Limpeza manual com confirmação
+- Stats em tempo real (total cached, recent 24h)
+
+### **✅ Settings Completas**
+- Contato/Vendas (WhatsApp dinâmico)
+- Cache configurável por API
+- Migration automática de schemas antigos
+- Todas as configs persistem corretamente
+
+### **✅ Melhorias de UX**
+- AlertDialog para confirmações críticas
+- Auto-refresh de métricas
+- Tratamento de erros aprimorado
+- Feedback visual em todas as ações
+
+---
+
 ## 🎁 DIFERENCIAIS COMPETITIVOS
 
 ✅ **Tudo em uma API** - Uma chave, 31+ endpoints  
@@ -265,7 +297,27 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 ✅ **Confiável** - Cache inteligente + fallbacks  
 ✅ **Gratuito** - 1.000 requests/dia sem cartão  
 ✅ **Documentação** - Redoc + exemplos funcionais  
-✅ **Transparente** - Dashboard com métricas em tempo real
+✅ **Transparente** - Dashboard com métricas em tempo real  
+✅ **Configurável** - Admin controla cache, rate limits, etc
+
+---
+
+## 🎯 PRÓXIMOS PASSOS
+
+1. **CNPJ API** (Prioridade Alta)
+   - Scraping Receita Federal
+   - Cache 30 dias
+   - Validação de número
+
+2. **Moedas API** (Prioridade Alta)
+   - Banco Central API
+   - Cotações real-time
+   - Histórico 30 dias
+
+3. **Bancos API** (Prioridade Média)
+   - Dados STR Banco Central
+   - Cache permanente
+   - Lista completa COMPE/ISPB
 
 ---
 
