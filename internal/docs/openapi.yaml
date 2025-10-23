@@ -92,8 +92,8 @@ paths:
                     type: string
                     example: "1.0.0"
                   environment:
-                  type: string
-                  example: "production"
+                    type: string
+                    example: "production"
 
   # ==========================================
   # CEP
