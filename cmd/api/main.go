@@ -41,6 +41,11 @@ func main() {
 		log.Warn().Err(err).Msg("index_creation_warning")
 	}
 
+	// Migrar configurações (adicionar campos novos)
+	if err := bootstrap.MigrateSettings(ctx, m.DB, log); err != nil {
+		log.Warn().Err(err).Msg("settings_migration_warning")
+	}
+
 	// Repos
 	tenants := storage.NewTenantsRepo(m.DB)
 	apikeys := storage.NewAPIKeysRepo(m.DB)

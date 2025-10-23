@@ -99,3 +99,45 @@ func CreateIndexes(ctx context.Context, db *mongo.Database, log zerolog.Logger) 
 	return nil
 }
 
+// MigrateSettings adiciona campos faltantes nas configurações
+func MigrateSettings(ctx context.Context, db *mongo.Database, log zerolog.Logger) error {
+	log.Info().Msg("Migrando configurações...")
+
+	// Verificar se settings tem o campo contact
+	var settings bson.M
+	err := db.Collection("system_settings").FindOne(ctx, bson.M{
+		"_id": "system-settings-singleton",
+	}).Decode(&settings)
+
+	if err == nil {
+		// Settings existe, verificar se tem contact
+		if _, hasContact := settings["contact"]; !hasContact {
+			log.Info().Msg("Adicionando campo contact nas configurações...")
+			
+			_, err = db.Collection("system_settings").UpdateOne(
+				ctx,
+				bson.M{"_id": "system-settings-singleton"},
+				bson.M{
+					"$set": bson.M{
+						"contact": bson.M{
+							"whatsapp": "48999616679",
+							"email":    "suporte@theretech.com.br",
+							"phone":    "+55 48 99961-6679",
+						},
+					},
+				},
+			)
+			
+			if err != nil {
+				log.Error().Err(err).Msg("Erro ao migrar campo contact")
+				return err
+			}
+			
+			log.Info().Msg("Campo contact adicionado com sucesso!")
+		}
+	}
+
+	log.Info().Msg("Migração de configurações concluída")
+	return nil
+}
+
