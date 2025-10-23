@@ -360,6 +360,17 @@ func (h *TenantHandler) GetMyConfig(c *gin.Context) {
 		},
 		"endpoints": []gin.H{
 			{
+				"category": "CEP",
+				"items": []gin.H{
+					{
+						"method":      "GET",
+						"path":        "/cep/:codigo",
+						"description": "Consulta CEP com cache (ViaCEP + Brasil API)",
+						"available":   true,
+					},
+				},
+			},
+			{
 				"category": "Geografia",
 				"items": []gin.H{
 					{
