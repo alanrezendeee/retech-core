@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -45,10 +46,16 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 		}
 
 		now := time.Now()
+		endpoint := c.Request.URL.Path
+		
+		// Extrair nome da API do endpoint
+		apiName := extractAPIName(endpoint)
+		
 		log := domain.APIUsageLog{
 			APIKey:       apiKeyStr,
 			TenantID:     tenantIDStr, // ✅ Usar a variável validada
-			Endpoint:     c.Request.URL.Path,
+			APIName:      apiName,     // ✅ Nome da API (cep, geografia, etc)
+			Endpoint:     endpoint,
 			Method:       c.Request.Method,
 			StatusCode:   c.Writer.Status(),
 			ResponseTime: responseTime,
@@ -67,5 +74,48 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 			coll := ul.db.Collection("api_usage_logs")
 			_, _ = coll.InsertOne(ctx, log)
 		}()
+	}
+}
+
+// extractAPIName extrai o nome da API a partir do endpoint
+// Exemplos:
+// /geo/ufs → "geografia"
+// /cep/01310-100 → "cep"
+// /cnpj/12345678000190 → "cnpj"
+func extractAPIName(endpoint string) string {
+	// Remover query string se houver
+	if idx := strings.Index(endpoint, "?"); idx != -1 {
+		endpoint = endpoint[:idx]
+	}
+	
+	// Split por /
+	parts := strings.Split(strings.Trim(endpoint, "/"), "/")
+	if len(parts) == 0 {
+		return "unknown"
+	}
+	
+	// Primeiro segmento é o nome da API
+	apiName := parts[0]
+	
+	// Mapear alguns casos especiais
+	switch apiName {
+	case "geo":
+		return "geografia"
+	case "cep":
+		return "cep"
+	case "cnpj":
+		return "cnpj"
+	case "cpf":
+		return "cpf"
+	case "fipe":
+		return "fipe"
+	case "moedas":
+		return "moedas"
+	case "bancos":
+		return "bancos"
+	case "feriados":
+		return "feriados"
+	default:
+		return apiName
 	}
 }

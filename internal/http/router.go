@@ -91,6 +91,19 @@ func NewRouter(
 		geoGroup.GET("/municipios/id/:id", geoHandler.GetMunicipio)
 	}
 
+	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção)
+	cepHandler := handlers.NewCEPHandler(m)
+	cepGroup := r.Group("/cep")
+	cepGroup.Use(
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
+	)
+	{
+		cepGroup.GET("/:codigo", cepHandler.GetCEP)
+	}
+
 	// Admin endpoints (protegidos por JWT + role SUPER_ADMIN)
 	adminHandler := handlers.NewAdminHandler(tenants, apikeys, users, m)
 	adminGroup := r.Group("/admin")

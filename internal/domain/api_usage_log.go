@@ -7,6 +7,7 @@ type APIUsageLog struct {
 	ID           string    `bson:"_id,omitempty" json:"id,omitempty"`
 	APIKey       string    `bson:"apiKey" json:"apiKey"`             // API Key usada
 	TenantID     string    `bson:"tenantId" json:"tenantId"`         // Tenant que fez a request
+	APIName      string    `bson:"apiName" json:"apiName"`           // Nome da API (cep, geografia, cnpj, etc)
 	Endpoint     string    `bson:"endpoint" json:"endpoint"`         // Endpoint acessado
 	Method       string    `bson:"method" json:"method"`             // HTTP method
 	StatusCode   int       `bson:"statusCode" json:"statusCode"`     // Status code da resposta
