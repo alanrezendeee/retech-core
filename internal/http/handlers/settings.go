@@ -62,6 +62,8 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 
 	// Log dos valores recebidos
 	fmt.Printf("Settings recebidas: %+v\n", settings)
+	fmt.Printf("📦 Cache config recebido: enabled=%v, cepTTLDays=%d, autoCleanup=%v\n", 
+		settings.Cache.Enabled, settings.Cache.CEPTTLDays, settings.Cache.AutoCleanup)
 
 	// ⚠️ IMPORTANTE: O campo environment SEMPRE vem da variável ENV
 	// Não permitir que seja sobrescrito pelo frontend!
