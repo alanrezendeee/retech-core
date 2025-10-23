@@ -21,6 +21,9 @@ type SystemSettings struct {
 	// API Info
 	API APIConfig `bson:"api" json:"api"`
 
+	// Contato/Vendas
+	Contact ContactConfig `bson:"contact" json:"contact"`
+
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 }
@@ -42,6 +45,13 @@ type APIConfig struct {
 	Version     string `bson:"version" json:"version"`
 	Environment string `bson:"environment" json:"environment"` // development, production
 	Maintenance bool   `bson:"maintenance" json:"maintenance"`
+}
+
+// ContactConfig define informações de contato/vendas
+type ContactConfig struct {
+	WhatsApp string `bson:"whatsapp" json:"whatsapp"` // Formato: 48999616679
+	Email    string `bson:"email" json:"email"`
+	Phone    string `bson:"phone" json:"phone"`
 }
 
 // GetDefaultSettings retorna as configurações padrão do sistema
@@ -77,6 +87,11 @@ func GetDefaultSettings() *SystemSettings {
 			Environment: env, // ← Agora vem da variável de ambiente!
 			Maintenance: false,
 		},
+		Contact: ContactConfig{
+			WhatsApp: "48999616679", // ✅ Seu WhatsApp padrão
+			Email:    "suporte@theretech.com.br",
+			Phone:    "+55 48 99961-6679",
+		},
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -88,4 +103,5 @@ type UpdateSystemSettingsRequest struct {
 	CORS             *CORSConfig      `json:"cors,omitempty"`
 	JWT              *JWTConfig       `json:"jwt,omitempty"`
 	API              *APIConfig       `json:"api,omitempty"`
+	Contact          *ContactConfig   `json:"contact,omitempty"`
 }

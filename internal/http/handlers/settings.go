@@ -150,3 +150,23 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 		"settings": settings,
 	})
 }
+
+// GetPublicContact retorna informações públicas de contato (sem auth)
+// GET /public/contact
+func (h *SettingsHandler) GetPublicContact(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	settings, err := h.settings.Get(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Erro ao carregar configurações de contato",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"whatsapp": settings.Contact.WhatsApp,
+		"email":    settings.Contact.Email,
+		"phone":    settings.Contact.Phone,
+	})
+}

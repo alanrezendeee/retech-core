@@ -63,6 +63,10 @@ func NewRouter(
 	r.GET("/version", handlers.Version)
 	r.GET("/docs", handlers.DocsHTML)
 	r.GET("/openapi.yaml", handlers.OpenAPIYAML)
+	
+	// Public endpoints
+	publicSettingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
+	r.GET("/public/contact", publicSettingsHandler.GetPublicContact)
 
 	// Auth endpoints (públicos)
 	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, settings, jwtService)
