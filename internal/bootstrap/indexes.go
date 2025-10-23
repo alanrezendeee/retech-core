@@ -146,10 +146,11 @@ func MigrateSettings(ctx context.Context, db *mongo.Database, log zerolog.Logger
 				bson.M{
 					"$set": bson.M{
 						"cache": bson.M{
-							"enabled":     true,
-							"cepTtlDays":  7,
-							"maxSizeMb":   100,
-							"autoCleanup": true,
+							"enabled":      true,
+							"cepTtlDays":   7,
+							"cnpjTtlDays":  30, // ✅ CNPJ: 30 dias
+							"maxSizeMb":    100,
+							"autoCleanup":  true,
 						},
 					},
 				},

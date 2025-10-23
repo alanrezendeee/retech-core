@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"github.com/theretech/retech-core/internal/utils"
@@ -47,6 +48,17 @@ func (h *APIKeysHandler) Create(c *gin.Context) {
 	var in createKeyDTO
 	if err := c.ShouldBindJSON(&in); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validar scopes
+	if err := auth.ValidateAPIKeyScopes(in.Scopes); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"type":   "https://retech-core/errors/validation",
+			"title":  "Scopes Inválidos",
+			"status": http.StatusBadRequest,
+			"detail": err.Error(),
+		})
 		return
 	}
 

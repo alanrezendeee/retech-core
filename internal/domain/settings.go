@@ -59,10 +59,11 @@ type ContactConfig struct {
 
 // CacheConfig define a configuração de cache
 type CacheConfig struct {
-	Enabled     bool `bson:"enabled" json:"enabled"`           // Habilitar/Desabilitar cache globalmente
-	CEPTTLDays  int  `bson:"cepTtlDays" json:"cepTtlDays"`     // TTL do cache de CEP em dias (1-365)
-	MaxSizeMB   int  `bson:"maxSizeMb" json:"maxSizeMb"`       // Tamanho máximo do cache em MB (futuro)
-	AutoCleanup bool `bson:"autoCleanup" json:"autoCleanup"`   // Limpeza automática via TTL index
+	Enabled      bool `bson:"enabled" json:"enabled"`             // Habilitar/Desabilitar cache globalmente
+	CEPTTLDays   int  `bson:"cepTtlDays" json:"cepTtlDays"`       // TTL do cache de CEP em dias (1-365)
+	CNPJTTLDays  int  `bson:"cnpjTtlDays" json:"cnpjTtlDays"`     // TTL do cache de CNPJ em dias (1-365)
+	MaxSizeMB    int  `bson:"maxSizeMb" json:"maxSizeMb"`         // Tamanho máximo do cache em MB (futuro)
+	AutoCleanup  bool `bson:"autoCleanup" json:"autoCleanup"`     // Limpeza automática via TTL index
 }
 
 // GetDefaultSettings retorna as configurações padrão do sistema
@@ -104,10 +105,11 @@ func GetDefaultSettings() *SystemSettings {
 			Phone:    "+55 48 99961-6679",
 		},
 		Cache: CacheConfig{
-			Enabled:     true, // ✅ Cache habilitado por padrão
-			CEPTTLDays:  7,    // 7 dias (padrão razoável)
-			MaxSizeMB:   100,  // 100MB (futuro: monitoramento)
-			AutoCleanup: true, // MongoDB TTL index ativo
+			Enabled:      true, // ✅ Cache habilitado por padrão
+			CEPTTLDays:   7,    // 7 dias (padrão razoável)
+			CNPJTTLDays:  30,   // 30 dias (empresas não mudam frequentemente)
+			MaxSizeMB:    100,  // 100MB (futuro: monitoramento)
+			AutoCleanup:  true, // MongoDB TTL index ativo
 		},
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),

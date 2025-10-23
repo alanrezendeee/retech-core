@@ -61,12 +61,8 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 		var cached domain.CNPJ
 		err := collection.FindOne(ctx, bson.M{"cnpj": cnpj}).Decode(&cached)
 		if err == nil {
-			// Verificar se cache ainda é válido (usar TTL dinâmico)
-			// Para CNPJ usamos 30 dias por padrão, mas respeitamos CEPTTLDays se for maior
-			cacheTTL := 30 * 24 * time.Hour
-			if settings.Cache.CEPTTLDays > 30 {
-				cacheTTL = time.Duration(settings.Cache.CEPTTLDays) * 24 * time.Hour
-			}
+			// Verificar se cache ainda é válido (usar TTL configurável)
+			cacheTTL := time.Duration(settings.Cache.CNPJTTLDays) * 24 * time.Hour
 			
 			if time.Since(cached.CachedAt) < cacheTTL {
 				cached.Source = "cache"
@@ -81,12 +77,15 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "brasilapi"
 		cnpjData.CachedAt = time.Now().UTC()
+		
+		// ✅ NORMALIZAR CNPJ para salvar sem formatação
+		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
 		// Salvar no cache (se habilitado)
 		if settings.Cache.Enabled {
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cnpj": cnpj},
+				bson.M{"cnpj": cnpj}, // cnpj já está normalizado
 				bson.M{"$set": cnpjData},
 				options.Update().SetUpsert(true),
 			)
@@ -104,12 +103,15 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "receitaws"
 		cnpjData.CachedAt = time.Now().UTC()
+		
+		// ✅ NORMALIZAR CNPJ para salvar sem formatação
+		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
 		// Salvar no cache (se habilitado)
 		if settings.Cache.Enabled {
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cnpj": cnpj},
+				bson.M{"cnpj": cnpj}, // cnpj já está normalizado
 				bson.M{"$set": cnpjData},
 				options.Update().SetUpsert(true),
 			)
@@ -401,7 +403,7 @@ func (h *CNPJHandler) GetCacheStats(c *gin.Context) {
 		"totalCached":   totalCached,
 		"recentCached":  recentCached, // últimas 24h
 		"cacheEnabled":  settings.Cache.Enabled,
-		"cacheTTLDays":  30, // CNPJ usa 30 dias fixo
+		"cacheTTLDays":  settings.Cache.CNPJTTLDays, // ✅ TTL configurável
 		"autoCleanup":   settings.Cache.AutoCleanup,
 	})
 }

@@ -78,14 +78,15 @@ func NewRouter(
 		authGroup.GET("/me", auth.AuthJWT(jwtService), authHandler.Me)
 	}
 
-	// GEO endpoints (protegidos por API Key + rate limit + logging + manutenção)
+	// GEO endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		maintenanceMiddleware.Middleware(), // Verifica manutenção
-		auth.AuthAPIKey(apikeys),           // Requer API Key válida
-		rateLimiter.Middleware(),           // Aplica rate limiting
-		usageLogger.Middleware(),           // Loga uso
+		maintenanceMiddleware.Middleware(),  // Verifica manutenção
+		auth.AuthAPIKey(apikeys),            // Requer API Key válida
+		auth.RequireScope(apikeys, "geo"),   // ✅ Verifica scope 'geo' ou 'all'
+		rateLimiter.Middleware(),            // Aplica rate limiting
+		usageLogger.Middleware(),            // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)
@@ -95,27 +96,29 @@ func NewRouter(
 		geoGroup.GET("/municipios/id/:id", geoHandler.GetMunicipio)
 	}
 
-	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção)
+	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	cepHandler := handlers.NewCEPHandler(m, settings)
 	cepGroup := r.Group("/cep")
 	cepGroup.Use(
-		maintenanceMiddleware.Middleware(), // Verifica manutenção
-		auth.AuthAPIKey(apikeys),           // Requer API Key válida
-		rateLimiter.Middleware(),           // Aplica rate limiting
-		usageLogger.Middleware(),           // Loga uso
+		maintenanceMiddleware.Middleware(),  // Verifica manutenção
+		auth.AuthAPIKey(apikeys),            // Requer API Key válida
+		auth.RequireScope(apikeys, "cep"),   // ✅ Verifica scope 'cep' ou 'all'
+		rateLimiter.Middleware(),            // Aplica rate limiting
+		usageLogger.Middleware(),            // Loga uso
 	)
 	{
 		cepGroup.GET("/:codigo", cepHandler.GetCEP)
 	}
 
-	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção)
+	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	cnpjHandler := handlers.NewCNPJHandler(m, settings)
 	cnpjGroup := r.Group("/cnpj")
 	cnpjGroup.Use(
-		maintenanceMiddleware.Middleware(), // Verifica manutenção
-		auth.AuthAPIKey(apikeys),           // Requer API Key válida
-		rateLimiter.Middleware(),           // Aplica rate limiting
-		usageLogger.Middleware(),           // Loga uso
+		maintenanceMiddleware.Middleware(),   // Verifica manutenção
+		auth.AuthAPIKey(apikeys),             // Requer API Key válida
+		auth.RequireScope(apikeys, "cnpj"),   // ✅ Verifica scope 'cnpj' ou 'all'
+		rateLimiter.Middleware(),             // Aplica rate limiting
+		usageLogger.Middleware(),             // Loga uso
 	)
 	{
 		cnpjGroup.GET("/:numero", cnpjHandler.GetCNPJ)

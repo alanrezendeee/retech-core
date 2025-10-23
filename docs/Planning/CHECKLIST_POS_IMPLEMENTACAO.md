@@ -9,6 +9,13 @@
 ### **1. Backend** ✅
 - [ ] Handler implementado (`internal/http/handlers/`)
 - [ ] Rotas registradas (`internal/http/router.go`)
+- [ ] **SCOPE** adicionado (`internal/auth/scope_middleware.go`) 🔒
+  - [ ] Adicionar scope no `validScopes` map
+  - [ ] Status: `true` (ativo)
+- [ ] **SCOPE** aplicado no router (`router.go`)
+  - [ ] `auth.RequireScope(apikeys, "nome_api")`
+- [ ] **SCOPE** no frontend (`components/apikeys/apikey-drawer.tsx`)
+  - [ ] Adicionar em `availableScopes` array
 - [ ] Testes unitários
 - [ ] Testes de integração
 - [ ] Cache implementado
