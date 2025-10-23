@@ -12,6 +12,7 @@ import (
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type CEPHandler struct {
@@ -81,13 +82,16 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.Source = "viacep"
 		response.CachedAt = time.Now().Format(time.RFC3339)
 
-		// Salvar no cache
-		collection.FindOneAndUpdate(
+		// Salvar no cache (com upsert!)
+		_, err := collection.UpdateOne(
 			ctx,
 			bson.M{"cep": cep},
 			bson.M{"$set": response},
-			nil,
+			options.Update().SetUpsert(true), // ✅ Cria se não existir!
 		)
+		if err != nil {
+			fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+		}
 
 		c.JSON(http.StatusOK, response)
 		return
@@ -99,13 +103,16 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.Source = "brasilapi"
 		response.CachedAt = time.Now().Format(time.RFC3339)
 
-		// Salvar no cache
-		collection.FindOneAndUpdate(
+		// Salvar no cache (com upsert!)
+		_, err := collection.UpdateOne(
 			ctx,
 			bson.M{"cep": cep},
 			bson.M{"$set": response},
-			nil,
+			options.Update().SetUpsert(true), // ✅ Cria se não existir!
 		)
+		if err != nil {
+			fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+		}
 
 		c.JSON(http.StatusOK, response)
 		return
