@@ -47,10 +47,10 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 
 		now := time.Now()
 		endpoint := c.Request.URL.Path
-		
+
 		// Extrair nome da API do endpoint
 		apiName := extractAPIName(endpoint)
-		
+
 		log := domain.APIUsageLog{
 			APIKey:       apiKeyStr,
 			TenantID:     tenantIDStr, // ✅ Usar a variável validada
@@ -87,16 +87,16 @@ func extractAPIName(endpoint string) string {
 	if idx := strings.Index(endpoint, "?"); idx != -1 {
 		endpoint = endpoint[:idx]
 	}
-	
+
 	// Split por /
 	parts := strings.Split(strings.Trim(endpoint, "/"), "/")
 	if len(parts) == 0 {
 		return "unknown"
 	}
-	
+
 	// Primeiro segmento é o nome da API
 	apiName := parts[0]
-	
+
 	// Mapear alguns casos especiais
 	switch apiName {
 	case "geo":

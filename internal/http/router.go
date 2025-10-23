@@ -127,6 +127,7 @@ func NewRouter(
 		// Analytics (admin only)
 		adminGroup.GET("/stats", adminHandler.GetStats)
 		adminGroup.GET("/usage", adminHandler.GetUsage)
+		adminGroup.GET("/analytics", adminHandler.GetAnalytics) // ✅ NOVO: Analytics detalhado com breakdown por API
 
 		// Settings (admin only)
 		settingsHandler := handlers.NewSettingsHandler(settings, activityLogs)

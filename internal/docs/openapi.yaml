@@ -49,6 +49,8 @@ servers:
 tags:
   - name: Infraestrutura
     description: Health checks e informações do sistema
+  - name: CEP
+    description: Consulta de CEP com cache e múltiplas fontes
   - name: Geografia
     description: Estados, municípios e dados geográficos do Brasil
 
@@ -90,8 +92,104 @@ paths:
                     type: string
                     example: "1.0.0"
                   environment:
-                    type: string
-                    example: "production"
+                  type: string
+                  example: "production"
+
+  # ==========================================
+  # CEP
+  # ==========================================
+  /cep/{codigo}:
+    get:
+      tags: [CEP]
+      summary: Consultar CEP
+      description: |
+        Consulta um CEP brasileiro. 
+        
+        **Fontes de Dados:**
+        - 🥇 **ViaCEP** (principal)
+        - 🥈 **Brasil API** (fallback)
+        - 💾 **Cache** (7 dias)
+        
+        **Performance:**
+        - Cache: < 10ms
+        - ViaCEP: ~50ms
+        - Brasil API: ~100ms
+        
+        **Formato aceito:**
+        - Com traço: `01310-100`
+        - Sem traço: `01310100`
+        
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          description: "CEP brasileiro (com ou sem traço)"
+          schema:
+            type: string
+            example: "01310-100"
+      responses:
+        '200':
+          description: CEP encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CEP'
+              examples:
+                avenida_paulista:
+                  summary: "Av. Paulista - São Paulo"
+                  value:
+                    cep: "01310-100"
+                    logradouro: "Avenida Paulista"
+                    complemento: "de 612 a 1510 - lado par"
+                    bairro: "Bela Vista"
+                    localidade: "São Paulo"
+                    uf: "SP"
+                    ibge: "3550308"
+                    ddd: "11"
+                    source: "viacep"
+                    cachedAt: "2025-10-23T15:30:00Z"
+                copacabana:
+                  summary: "Copacabana - Rio de Janeiro"
+                  value:
+                    cep: "22021-001"
+                    logradouro: "Avenida Atlântica"
+                    bairro: "Copacabana"
+                    localidade: "Rio de Janeiro"
+                    uf: "RJ"
+                    ibge: "3304557"
+                    ddd: "21"
+                    source: "cache"
+                    cachedAt: "2025-10-20T10:15:00Z"
+        '400':
+          description: CEP inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/validation"
+                title: "Invalid CEP"
+                status: 400
+                detail: "CEP deve ter 8 dígitos"
+        '404':
+          description: CEP não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/not-found"
+                title: "CEP Not Found"
+                status: 404
+                detail: "CEP 99999999 não encontrado"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
 
   # ==========================================
   # GEOGRAFIA
@@ -266,6 +364,63 @@ paths:
 
 components:
   schemas:
+    CEP:
+      type: object
+      description: Representa um endereço completo a partir de um CEP
+      properties:
+        cep:
+          type: string
+          description: CEP formatado
+          example: "01310-100"
+        logradouro:
+          type: string
+          description: Nome da rua/avenida
+          example: "Avenida Paulista"
+        complemento:
+          type: string
+          description: Complemento do endereço (ex. "de 612 a 1510 - lado par")
+          example: "de 612 a 1510 - lado par"
+        bairro:
+          type: string
+          description: Nome do bairro
+          example: "Bela Vista"
+        localidade:
+          type: string
+          description: Nome da cidade
+          example: "São Paulo"
+        uf:
+          type: string
+          description: Sigla do estado
+          example: "SP"
+        ibge:
+          type: string
+          description: Código IBGE do município
+          example: "3550308"
+        ddd:
+          type: string
+          description: Código DDD
+          example: "11"
+        latitude:
+          type: number
+          format: float
+          description: Latitude (quando disponível)
+          example: -23.5617
+        longitude:
+          type: number
+          format: float
+          description: Longitude (quando disponível)
+          example: -46.6562
+        source:
+          type: string
+          description: Fonte dos dados
+          enum: [viacep, brasilapi, cache]
+          example: "viacep"
+        cachedAt:
+          type: string
+          format: date-time
+          description: Data/hora do cache (quando aplicável)
+          example: "2025-10-23T15:30:00Z"
+
     Estado:
       type: object
       description: Representa um estado brasileiro

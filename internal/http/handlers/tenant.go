@@ -478,6 +478,23 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 	var byEndpoint []bson.M
 	cursor2.All(ctx, &byEndpoint)
 
+	// Por API (nova métrica!)
+	pipelineAPIs := []bson.M{
+		{"$match": bson.M{"tenantId": tenantID}},
+		{"$group": bson.M{
+			"_id":   "$apiName",
+			"count": bson.M{"$sum": 1},
+			"avgResponseTime": bson.M{"$avg": "$responseTime"},
+		}},
+		{"$sort": bson.M{"count": -1}},
+	}
+
+	cursor3, _ := h.db.DB.Collection("api_usage_logs").Aggregate(ctx, pipelineAPIs)
+	defer cursor3.Close(ctx)
+
+	var byAPI []bson.M
+	cursor3.All(ctx, &byAPI)
+
 	c.JSON(http.StatusOK, gin.H{
 		"totalRequests":  totalRequests,
 		"requestsToday":  requestsToday,
@@ -487,6 +504,7 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 		"percentageUsed": float64(requestsToday) / float64(dailyLimit) * 100,
 		"byDay":          byDay,
 		"byEndpoint":     byEndpoint,
+		"byAPI":          byAPI, // ✅ NOVO: Breakdown por API
 	})
 }
 

@@ -21,13 +21,13 @@ type APIUsageLog struct {
 
 // UsageStats estatísticas de uso agregadas
 type UsageStats struct {
-	TotalRequests  int64              `json:"totalRequests"`
-	TotalToday     int64              `json:"totalToday"`
-	TotalThisMonth int64              `json:"totalThisMonth"`
-	AvgResponseTime float64           `json:"avgResponseTime"` // ms
-	TopEndpoints   []EndpointStat     `json:"topEndpoints"`
-	ErrorRate      float64            `json:"errorRate"` // Percentual
-	RequestsByDay  []RequestsByDay    `json:"requestsByDay"`
+	TotalRequests   int64           `json:"totalRequests"`
+	TotalToday      int64           `json:"totalToday"`
+	TotalThisMonth  int64           `json:"totalThisMonth"`
+	AvgResponseTime float64         `json:"avgResponseTime"` // ms
+	TopEndpoints    []EndpointStat  `json:"topEndpoints"`
+	ErrorRate       float64         `json:"errorRate"` // Percentual
+	RequestsByDay   []RequestsByDay `json:"requestsByDay"`
 }
 
 // EndpointStat estatística por endpoint
@@ -41,4 +41,3 @@ type RequestsByDay struct {
 	Date  string `json:"date"`
 	Count int64  `json:"count"`
 }
-
