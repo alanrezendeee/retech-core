@@ -23,13 +23,15 @@ import (
 type TenantHandler struct {
 	apikeys *storage.APIKeysRepo
 	users   *storage.UsersRepo
+	tenants *storage.TenantsRepo
 	db      *storage.Mongo
 }
 
-func NewTenantHandler(apikeys *storage.APIKeysRepo, users *storage.UsersRepo, m *storage.Mongo) *TenantHandler {
+func NewTenantHandler(apikeys *storage.APIKeysRepo, users *storage.UsersRepo, tenants *storage.TenantsRepo, m *storage.Mongo) *TenantHandler {
 	return &TenantHandler{
 		apikeys: apikeys,
 		users:   users,
+		tenants: tenants,
 		db:      m,
 	}
 }
@@ -308,6 +310,88 @@ func (h *TenantHandler) DeleteAPIKey(c *gin.Context) {
 }
 
 // GetMyUsage retorna uso da API do tenant logado
+// GetMyConfig retorna configurações do tenant para a documentação
+// GET /me/config
+func (h *TenantHandler) GetMyConfig(c *gin.Context) {
+	tenantID := auth.GetTenantID(c)
+	if tenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"type":   "https://retech-core/errors/unauthorized",
+			"title":  "Unauthorized",
+			"status": http.StatusUnauthorized,
+			"detail": "Tenant ID não encontrado",
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Buscar tenant
+	tenant, err := h.tenants.ByTenantID(ctx, tenantID)
+	if err != nil || tenant == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"type":   "https://retech-core/errors/not-found",
+			"title":  "Not Found",
+			"status": http.StatusNotFound,
+			"detail": "Tenant não encontrado",
+		})
+		return
+	}
+
+	// API Base URL (pode vir de env ou ser hardcoded)
+	apiBaseURL := os.Getenv("API_BASE_URL")
+	if apiBaseURL == "" {
+		apiBaseURL = "https://api-core.theretech.com.br"
+	}
+
+	// Rate Limit
+	dailyLimit := int64(1000)
+	minuteLimit := int64(60)
+	if tenant.RateLimit != nil {
+		dailyLimit = tenant.RateLimit.RequestsPerDay
+		minuteLimit = tenant.RateLimit.RequestsPerMinute
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"apiBaseURL": apiBaseURL,
+		"rateLimit": gin.H{
+			"requestsPerDay":    dailyLimit,
+			"requestsPerMinute": minuteLimit,
+		},
+		"endpoints": []gin.H{
+			{
+				"category": "Geografia",
+				"items": []gin.H{
+					{
+						"method":      "GET",
+						"path":        "/geo/ufs",
+						"description": "Lista todos os estados brasileiros",
+						"available":   true,
+					},
+					{
+						"method":      "GET",
+						"path":        "/geo/ufs/:sigla",
+						"description": "Detalhes de um estado específico",
+						"available":   true,
+					},
+					{
+						"method":      "GET",
+						"path":        "/geo/municipios",
+						"description": "Lista todos os municípios",
+						"available":   true,
+					},
+					{
+						"method":      "GET",
+						"path":        "/geo/municipios/:uf",
+						"description": "Municípios de um estado",
+						"available":   true,
+					},
+				},
+			},
+		},
+	})
+}
+
 // GET /me/usage
 func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 	tenantID := auth.GetTenantID(c)
@@ -340,8 +424,19 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 		"date":     bson.M{"$regex": "^" + startOfMonth},
 	})
 
-	// Limite diário (free tier)
-	dailyLimit := int64(1000)
+	// Buscar limite diário do tenant (SEMPRE tem rateLimit salvo agora!)
+	tenant, err := h.tenants.ByTenantID(ctx, tenantID)
+	dailyLimit := int64(1000) // Fallback
+
+	if err != nil || tenant == nil {
+		fmt.Printf("⚠️ [GetMyUsage] Tenant não encontrado! Usando fallback.\n")
+	} else if tenant.RateLimit == nil {
+		fmt.Printf("⚠️ [GetMyUsage] Tenant SEM rateLimit! Usando fallback.\n")
+	} else {
+		dailyLimit = tenant.RateLimit.RequestsPerDay
+		fmt.Printf("✅ [GetMyUsage] dailyLimit do tenant: %d/dia\n", dailyLimit)
+	}
+
 	remaining := dailyLimit - requestsToday
 	if remaining < 0 {
 		remaining = 0
@@ -427,18 +522,20 @@ func (h *TenantHandler) GetMyStats(c *gin.Context) {
 		requestsToday = int64(rateLimit.Count)
 	}
 
-	// 3. Buscar configuração do tenant (rate limit personalizado ou padrão)
-	var tenant bson.M
-	err = h.db.DB.Collection("tenants").FindOne(ctx, bson.M{"tenantId": tenantID}).Decode(&tenant)
-	dailyLimit := int64(1000) // Padrão
-	if err == nil {
-		if rl, ok := tenant["rateLimit"].(bson.M); ok {
-			if rpd, ok := rl["RequestsPerDay"].(int32); ok {
-				dailyLimit = int64(rpd)
-			} else if rpd, ok := rl["RequestsPerDay"].(int64); ok {
-				dailyLimit = rpd
-			}
-		}
+	// 3. Buscar tenant (SEMPRE tem rateLimit salvo agora!)
+	tenant, err := h.tenants.ByTenantID(ctx, tenantID)
+	dailyLimit := int64(1000) // Fallback (não deveria acontecer)
+
+	fmt.Printf("🔍 [GetMyStats] TenantID: %s\n", tenantID)
+
+	if err != nil || tenant == nil {
+		fmt.Printf("⚠️ [GetMyStats] Tenant não encontrado! Usando fallback.\n")
+	} else if tenant.RateLimit == nil {
+		fmt.Printf("⚠️ [GetMyStats] Tenant SEM rateLimit! Usando fallback.\n")
+	} else {
+		dailyLimit = tenant.RateLimit.RequestsPerDay
+		fmt.Printf("✅ [GetMyStats] dailyLimit do tenant: %d/dia, %d/min\n",
+			tenant.RateLimit.RequestsPerDay, tenant.RateLimit.RequestsPerMinute)
 	}
 
 	// 4. Calcular remaining e percentage

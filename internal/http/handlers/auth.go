@@ -18,15 +18,17 @@ type AuthHandler struct {
 	tenants      *storage.TenantsRepo
 	apikeys      *storage.APIKeysRepo
 	activityRepo *storage.ActivityLogsRepo
+	settings     *storage.SettingsRepo
 	jwt          *auth.JWTService
 }
 
-func NewAuthHandler(users *storage.UsersRepo, tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, activityRepo *storage.ActivityLogsRepo, jwt *auth.JWTService) *AuthHandler {
+func NewAuthHandler(users *storage.UsersRepo, tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, activityRepo *storage.ActivityLogsRepo, settings *storage.SettingsRepo, jwt *auth.JWTService) *AuthHandler {
 	return &AuthHandler{
 		users:        users,
 		tenants:      tenants,
 		apikeys:      apikeys,
 		activityRepo: activityRepo,
+		settings:     settings,
 		jwt:          jwt,
 	}
 }
@@ -188,12 +190,32 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Criar tenant
+	// Buscar rate limit padrão das configurações
+	settings, err := h.settings.Get(ctx)
+	var defaultRateLimit *domain.RateLimitConfig
+	if err == nil && settings != nil {
+		defaultRateLimit = &domain.RateLimitConfig{
+			RequestsPerDay:    settings.DefaultRateLimit.RequestsPerDay,
+			RequestsPerMinute: settings.DefaultRateLimit.RequestsPerMinute,
+		}
+		fmt.Printf("✅ [Register] Aplicando rate limit padrão: %d/dia, %d/min\n",
+			defaultRateLimit.RequestsPerDay, defaultRateLimit.RequestsPerMinute)
+	} else {
+		// Fallback se não encontrar settings
+		defaultRateLimit = &domain.RateLimitConfig{
+			RequestsPerDay:    1000,
+			RequestsPerMinute: 60,
+		}
+		fmt.Printf("⚠️ [Register] Usando fallback: 1000/dia, 60/min\n")
+	}
+
+	// Criar tenant com rate limit padrão
 	tenant := &domain.Tenant{
-		TenantID: generateTenantID(req.TenantName),
-		Name:     req.TenantName,
-		Email:    req.TenantEmail,
-		Active:   true,
+		TenantID:  generateTenantID(req.TenantName),
+		Name:      req.TenantName,
+		Email:     req.TenantEmail,
+		Active:    true,
+		RateLimit: defaultRateLimit, // ✅ Sempre salvar rate limit!
 	}
 
 	if err := h.tenants.Insert(ctx, tenant); err != nil {

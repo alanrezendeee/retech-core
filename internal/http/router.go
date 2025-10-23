@@ -64,7 +64,7 @@ func NewRouter(
 	r.GET("/openapi.yaml", handlers.OpenAPIYAML)
 
 	// Auth endpoints (públicos)
-	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, jwtService)
+	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, settings, jwtService)
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/login", authHandler.Login)
@@ -77,9 +77,9 @@ func NewRouter(
 	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		auth.AuthAPIKey(apikeys),  // Requer API Key válida
-		rateLimiter.Middleware(),  // Aplica rate limiting
-		usageLogger.Middleware(),  // Loga uso
+		auth.AuthAPIKey(apikeys), // Requer API Key válida
+		rateLimiter.Middleware(), // Aplica rate limiting
+		usageLogger.Middleware(), // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)
@@ -95,7 +95,7 @@ func NewRouter(
 	adminGroup.Use(auth.AuthJWT(jwtService), auth.RequireSuperAdmin())
 	{
 		// Tenants (admin only)
-		tenantsHandler := handlers.NewTenantsHandler(tenants, activityLogs)
+		tenantsHandler := handlers.NewTenantsHandler(tenants, activityLogs, settings)
 		adminGroup.GET("/tenants", tenantsHandler.List)
 		adminGroup.GET("/tenants/:id", tenantsHandler.Get)
 		adminGroup.POST("/tenants", tenantsHandler.Create)
@@ -127,7 +127,7 @@ func NewRouter(
 	}
 
 	// Tenant endpoints (protegidos por JWT + role TENANT_USER)
-	tenantHandler := handlers.NewTenantHandler(apikeys, users, m)
+	tenantHandler := handlers.NewTenantHandler(apikeys, users, tenants, m)
 	meGroup := r.Group("/me")
 	meGroup.Use(auth.AuthJWT(jwtService), auth.RequireTenantUser())
 	{
@@ -137,10 +137,11 @@ func NewRouter(
 		meGroup.POST("/apikeys/:id/rotate", tenantHandler.RotateAPIKey)
 		meGroup.DELETE("/apikeys/:id", tenantHandler.DeleteAPIKey)
 
-	// Meu uso
-	meGroup.GET("/stats", tenantHandler.GetMyStats)   // Métricas rápidas para dashboard
-	meGroup.GET("/usage", tenantHandler.GetMyUsage)    // Uso detalhado com gráficos
-}
+		// Meu uso
+		meGroup.GET("/stats", tenantHandler.GetMyStats)   // Métricas rápidas para dashboard
+		meGroup.GET("/usage", tenantHandler.GetMyUsage)   // Uso detalhado com gráficos
+		meGroup.GET("/config", tenantHandler.GetMyConfig) // Configurações para docs
+	}
 
 	return r
 }

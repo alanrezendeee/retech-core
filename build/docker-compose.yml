@@ -5,6 +5,8 @@ services:
       dockerfile: build/Dockerfile
     image: theretech/retech-core:dev
     env_file: ../.env
+    environment:
+      - API_BASE_URL=http://localhost:8080
     ports:
       - "8080:8080"
     volumes:
