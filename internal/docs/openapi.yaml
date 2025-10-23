@@ -51,6 +51,8 @@ tags:
     description: Health checks e informações do sistema
   - name: CEP
     description: Consulta de CEP com cache e múltiplas fontes
+  - name: CNPJ
+    description: Consulta de CNPJ com dados da Receita Federal
   - name: Geografia
     description: Estados, municípios e dados geográficos do Brasil
 
@@ -190,6 +192,112 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '503':
           $ref: '#/components/responses/Maintenance'
+
+  # ==========================================
+  # CNPJ
+  # ==========================================
+  /cnpj/{numero}:
+    get:
+      tags: [CNPJ]
+      summary: Consultar CNPJ
+      description: |
+        Consulta dados completos de uma empresa pelo CNPJ.
+        
+        **Fontes de Dados:**
+        - 🥇 **Brasil API** (principal - Receita Federal)
+        - 🥈 **ReceitaWS** (fallback)
+        - 💾 **Cache** (30 dias)
+        
+        **Performance:**
+        - Cache: < 10ms
+        - Brasil API: ~200-500ms
+        - ReceitaWS: ~500-1000ms
+        
+        **Formato aceito:**
+        - Com formatação: `00.000.000/0001-91`
+        - Sem formatação: `00000000000191`
+        
+        **Validação:**
+        - ✅ Dígito verificador obrigatório
+        - ❌ CNPJs inválidos retornam 400
+        
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: numero
+          in: path
+          required: true
+          description: "CNPJ brasileiro (com ou sem formatação)"
+          schema:
+            type: string
+            example: "00.000.000/0001-91"
+      responses:
+        '200':
+          description: CNPJ encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CNPJ'
+              examples:
+                banco_do_brasil:
+                  summary: "Banco do Brasil S.A."
+                  value:
+                    cnpj: "00000000000191"
+                    razaoSocial: "BANCO DO BRASIL SA"
+                    nomeFantasia: "BANCO DO BRASIL"
+                    situacao: "ATIVA"
+                    dataSituacao: "2005-11-03"
+                    dataAbertura: "1966-08-30"
+                    porte: "DEMAIS"
+                    naturezaJuridica: "Sociedade de Economia Mista"
+                    capitalSocial: 81250000000.00
+                    endereco:
+                      logradouro: "SBS Quadra 1 Bloco G"
+                      numero: "S/N"
+                      complemento: "LOJA LOJA 1 SUBSOLO 1"
+                      bairro: "ASA SUL"
+                      cep: "70073901"
+                      municipio: "Brasília"
+                      uf: "DF"
+                    telefones: ["(61) 3493-9002"]
+                    email: "prov@bb.com.br"
+                    atividadePrincipal:
+                      codigo: "64.21-2-00"
+                      descricao: "Bancos comerciais"
+                    atividadesSecundarias:
+                      - codigo: "66.19-3-99"
+                        descricao: "Outras atividades auxiliares dos serviços financeiros"
+                    qsa:
+                      - nome: "EXEMPLO NOME SOCIO"
+                        qualificacao: "Diretor"
+                    source: "brasilapi"
+                    cachedAt: "2025-10-23T22:30:00Z"
+        '400':
+          description: CNPJ inválido (dígito verificador errado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/validation"
+                title: "CNPJ Inválido"
+                status: 400
+                detail: "CNPJ deve ter 14 dígitos válidos"
+        '404':
+          description: CNPJ não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/not-found"
+                title: "CNPJ Not Found"
+                status: 404
+                detail: "CNPJ 99999999999999 não encontrado ou indisponível"
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
   # ==========================================
   # GEOGRAFIA
@@ -420,6 +528,139 @@ components:
           format: date-time
           description: Data/hora do cache (quando aplicável)
           example: "2025-10-23T15:30:00Z"
+
+    CNPJ:
+      type: object
+      description: Representa uma empresa brasileira com dados da Receita Federal
+      properties:
+        cnpj:
+          type: string
+          description: CNPJ (apenas números)
+          example: "00000000000191"
+        razaoSocial:
+          type: string
+          description: Razão social (nome legal)
+          example: "BANCO DO BRASIL SA"
+        nomeFantasia:
+          type: string
+          description: Nome fantasia (marca)
+          example: "BANCO DO BRASIL"
+        situacao:
+          type: string
+          description: Situação cadastral
+          enum: [ATIVA, BAIXADA, SUSPENSA, INAPTA, NULA]
+          example: "ATIVA"
+        dataSituacao:
+          type: string
+          format: date
+          description: Data da situação cadastral
+          example: "2005-11-03"
+        dataAbertura:
+          type: string
+          format: date
+          description: Data de abertura/constituição
+          example: "1966-08-30"
+        porte:
+          type: string
+          description: Porte da empresa
+          enum: [MEI, MICRO EMPRESA, EMPRESA DE PEQUENO PORTE, DEMAIS]
+          example: "DEMAIS"
+        naturezaJuridica:
+          type: string
+          description: Natureza jurídica
+          example: "Sociedade de Economia Mista"
+        capitalSocial:
+          type: number
+          format: double
+          description: Capital social em reais
+          example: 81250000000.00
+        endereco:
+          $ref: '#/components/schemas/CNPJEndereco'
+        telefones:
+          type: array
+          items:
+            type: string
+          description: Lista de telefones
+          example: ["(61) 3493-9002"]
+        email:
+          type: string
+          format: email
+          description: E-mail da empresa
+          example: "prov@bb.com.br"
+        atividadePrincipal:
+          $ref: '#/components/schemas/CNPJAtividade'
+        atividadesSecundarias:
+          type: array
+          items:
+            $ref: '#/components/schemas/CNPJAtividade'
+          description: Lista de CNAEs secundários
+        qsa:
+          type: array
+          items:
+            $ref: '#/components/schemas/CNPJSocio'
+          description: Quadro de Sócios e Administradores
+        source:
+          type: string
+          description: Fonte dos dados
+          enum: [brasilapi, receitaws, cache]
+          example: "brasilapi"
+        cachedAt:
+          type: string
+          format: date-time
+          description: Data/hora do cache
+          example: "2025-10-23T22:30:00Z"
+
+    CNPJEndereco:
+      type: object
+      description: Endereço da empresa
+      properties:
+        logradouro:
+          type: string
+          example: "SBS Quadra 1 Bloco G"
+        numero:
+          type: string
+          example: "S/N"
+        complemento:
+          type: string
+          example: "LOJA LOJA 1 SUBSOLO 1"
+        bairro:
+          type: string
+          example: "ASA SUL"
+        cep:
+          type: string
+          example: "70073901"
+        municipio:
+          type: string
+          example: "Brasília"
+        uf:
+          type: string
+          example: "DF"
+
+    CNPJAtividade:
+      type: object
+      description: Atividade econômica (CNAE)
+      properties:
+        codigo:
+          type: string
+          description: Código CNAE
+          example: "64.21-2-00"
+        descricao:
+          type: string
+          description: Descrição da atividade
+          example: "Bancos comerciais"
+
+    CNPJSocio:
+      type: object
+      description: Sócio ou administrador
+      properties:
+        nome:
+          type: string
+          description: Nome completo
+          example: "JOÃO DA SILVA"
+        qualificacao:
+          type: string
+          description: Cargo/qualificação
+          example: "Diretor"
 
     Estado:
       type: object
