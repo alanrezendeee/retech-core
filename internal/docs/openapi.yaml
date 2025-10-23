@@ -1,287 +1,129 @@
 openapi: 3.0.3
 info:
   title: Retech Core API
-  version: 0.3.0
-  description: API utilitária multitenant com autenticação via API Key e dados geográficos do Brasil
+  version: 1.0.0
+  description: |
+    # 🚀 Retech Core API
+    
+    A API definitiva de dados brasileiros para desenvolvedores.
+    
+    ## 🎯 Características
+    
+    - ⚡ **Performance**: Respostas em <100ms
+    - 🔒 **Segurança**: API Key + Rate Limiting
+    - 📊 **Dados**: Geografia, CEP, CNPJ, CPF e mais
+    - 🎁 **Gratuito**: 1.000 requests/dia no plano Free
+    
+    ## 🔐 Autenticação
+    
+    Use o header `X-API-Key` com sua chave de API:
+    
+    ```bash
+    curl __API_BASE_URL__/geo/ufs \
+      -H "X-API-Key: sua_api_key_aqui"
+    ```
+    
+    ## 📈 Rate Limiting
+    
+    - **Plano Free**: 1.000 requests/dia, 60/min
+    - **Plano Pro**: 10.000 requests/dia, 200/min
+    - **Plano Business**: Custom
+    
+    ## 📚 Mais Informações
+    
+    - **Portal do Desenvolvedor**: https://core.theretech.com.br
+    - **Documentação Completa**: https://core.theretech.com.br/painel/docs
+    - **Status**: https://status.theretech.com.br
+    
+  contact:
+    name: Retech Support
+    email: suporte@theretech.com.br
+    url: https://core.theretech.com.br
+  license:
+    name: Proprietary
+    url: https://core.theretech.com.br/termos
+
 servers:
-  - url: http://localhost:8080
+  - url: __API_BASE_URL__
+
 tags:
-  - name: Infra
-  - name: Tenants
-  - name: API Keys
-  - name: GEO
+  - name: Infraestrutura
+    description: Health checks e informações do sistema
+  - name: Geografia
+    description: Estados, municípios e dados geográficos do Brasil
+
 paths:
+  # ==========================================
+  # INFRAESTRUTURA
+  # ==========================================
   /health:
     get:
-      tags: [Infra]
-      summary: Health check
+      tags: [Infraestrutura]
+      summary: Health Check
+      description: Verifica se a API está funcionando
       responses:
-        '200': 
-          description: OK
+        '200':
+          description: API funcionando normalmente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
   /version:
     get:
-      tags: [Infra]
-      summary: Version info
-      responses:
-        '200': 
-          description: OK
-  /docs:
-    get:
-      tags: [Infra]
-      summary: Redoc UI
-      responses:
-        '200': 
-          description: HTML
-  /openapi.yaml:
-    get:
-      tags: [Infra]
-      summary: OpenAPI spec
-      responses:
-        '200': 
-          description: Spec
-  /tenants:
-    post:
-      tags: [Tenants]
-      summary: Create tenant
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [tenantId, name, email]
-              properties:
-                tenantId: 
-                  type: string
-                  description: Tenant ID
-                name: 
-                  type: string
-                  description: Tenant name
-                email: 
-                  type: string
-                  format: email
-                  description: Contact email
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Tenant'
-        '409': 
-          description: Conflict
-    get:
-      tags: [Tenants]
-      summary: List tenants
+      tags: [Infraestrutura]
+      summary: Versão da API
+      description: Retorna informações sobre a versão atual
       responses:
         '200':
-          description: OK
+          description: Informações da versão
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  tenants:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Tenant'
-  /tenants/{id}:
-    get:
-      tags: [Tenants]
-      summary: Get tenant
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: 
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Tenant'
-        '404': 
-          description: Not found
-    put:
-      tags: [Tenants]
-      summary: Update tenant
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: 
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name: 
-                  type: string
-                email: 
-                  type: string
-                  format: email
-                active: 
-                  type: boolean
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Tenant'
-        '404': 
-          description: Not found
-    delete:
-      tags: [Tenants]
-      summary: Delete tenant
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: 
-            type: string
-      responses:
-        '204': 
-          description: No content
-        '404': 
-          description: Not found
-  /apikeys:
-    post:
-      tags: [API Keys]
-      summary: Create API key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [ownerId]
-              properties:
-                ownerId: 
-                  type: string
-                  description: Tenant ID
-                scopes: 
-                  type: array
-                  items: 
+                  version:
                     type: string
-                  description: Scopes
-                days: 
-                  type: integer
-                  description: Days until expiration
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  api_key: 
+                    example: "1.0.0"
+                  environment:
                     type: string
-                    description: API key
-                  expiresAt: 
-                    type: string
-                    format: date-time
-        '404': 
-          description: Tenant not found
-        '400': 
-          description: Tenant inactive
-  /apikeys/rotate:
-    post:
-      tags: [API Keys]
-      summary: Rotate API key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [keyId]
-              properties:
-                keyId: 
-                  type: string
-                  description: ID of the API key to rotate
-      responses:
-        '201': 
-          description: New API key created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  api_key: 
-                    type: string
-                    description: New API key
-                  expiresAt: 
-                    type: string
-                    format: date-time
-                  message: 
-                    type: string
-                    description: Success message
-        '404': 
-          description: API key not found
-        '400': 
-          description: Bad request
-  /apikeys/revoke:
-    post:
-      tags: [API Keys]
-      summary: Revoke API key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [keyId]
-              properties:
-                keyId: 
-                  type: string
-      responses:
-        '204': 
-          description: No content
-  /protected/apikey:
-    get:
-      tags: [API Keys]
-      summary: Test protected endpoint
-      parameters:
-        - in: header
-          name: X-API-Key
-          required: true
-          schema: 
-            type: string
-      responses:
-        '200': 
-          description: OK
-        '401': 
-          description: Unauthorized
+                    example: "production"
+
+  # ==========================================
+  # GEOGRAFIA
+  # ==========================================
   /geo/ufs:
     get:
-      tags: [GEO]
-      summary: Lista todos os estados brasileiros
-      description: Retorna todos os 27 estados do Brasil com suas regiões. Suporta busca parcial por nome ou sigla.
-      parameters:
-        - in: query
-          name: q
-          required: false
-          schema:
-            type: string
-          description: Busca parcial por nome ou sigla do estado (ex. "pernam", "PE")
+      tags: [Geografia]
+      summary: Listar Estados
+      description: |
+        Retorna todos os 27 estados brasileiros com informações completas.
+        
+        **Exemplo de uso:**
+        ```bash
+        curl __API_BASE_URL__/geo/ufs \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
       responses:
         '200':
           description: Lista de estados
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                type: object
+                properties:
+                  estados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Estado'
               example:
-                success: true
-                code: "OK"
-                data:
+                estados:
                   - id: 26
                     sigla: "PE"
                     nome: "Pernambuco"
@@ -289,245 +131,152 @@ paths:
                       id: 2
                       sigla: "NE"
                       nome: "Nordeste"
-        '500':
-          description: Erro interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
+
   /geo/ufs/{sigla}:
     get:
-      tags: [GEO]
-      summary: Busca estado por sigla
-      description: Retorna informações de um estado específico pela sua sigla (ex. PE, SP, RJ)
+      tags: [Geografia]
+      summary: Buscar Estado por Sigla
+      description: |
+        Retorna detalhes de um estado específico pela sigla.
+        
+        **Exemplo de uso:**
+        ```bash
+        curl __API_BASE_URL__/geo/ufs/PE \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
       parameters:
-        - in: path
-          name: sigla
+        - name: sigla
+          in: path
           required: true
+          description: "Sigla do estado (ex: SP, RJ, PE)"
           schema:
             type: string
-            minLength: 2
-            maxLength: 2
-          description: Sigla do estado (ex. PE, SP, RJ)
+            example: "PE"
       responses:
         '200':
-          description: Estado encontrado
+          description: Detalhes do estado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/Estado'
               example:
-                success: true
-                code: "OK"
-                data:
-                  id: 26
-                  sigla: "PE"
-                  nome: "Pernambuco"
-                  regiao:
-                    id: 2
-                    sigla: "NE"
-                    nome: "Nordeste"
+                id: 26
+                sigla: "PE"
+                nome: "Pernambuco"
+                regiao:
+                  id: 2
+                  sigla: "NE"
+                  nome: "Nordeste"
         '404':
-          description: Estado não encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Erro interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /geo/municipios:
     get:
-      tags: [GEO]
-      summary: Lista municípios com filtros opcionais
-      description: Retorna municípios brasileiros. Suporta filtros por UF e busca por nome.
+      tags: [Geografia]
+      summary: Listar Municípios
+      description: |
+        Retorna todos os municípios ou filtra por UF/nome.
+        
+        **Exemplo de uso:**
+        ```bash
+        # Todos os municípios
+        curl __API_BASE_URL__/geo/municipios \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Filtrar por UF
+        curl "__API_BASE_URL__/geo/municipios?uf=PE" \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Buscar por nome
+        curl "__API_BASE_URL__/geo/municipios?q=Recife" \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
       parameters:
-        - in: query
-          name: uf
-          required: false
+        - name: uf
+          in: query
+          description: "Filtrar por UF (ex: PE, SP)"
           schema:
             type: string
-            minLength: 2
-            maxLength: 2
-          description: Filtra por estado (ex. PE, SP)
-        - in: query
-          name: q
-          required: false
+            example: "PE"
+        - name: q
+          in: query
+          description: Buscar por nome
           schema:
             type: string
-          description: Busca parcial por nome do município (ex. "recife", "são paulo")
+            example: "Recife"
       responses:
         '200':
           description: Lista de municípios
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                code: "OK"
-                data:
-                  - id: 2611606
-                    nome: "Recife"
-                    microrregiao:
-                      id: 26017
-                      nome: "Recife"
-                      mesorregiao:
-                        id: 2605
-                        nome: "Metropolitana de Recife"
-                        UF:
-                          id: 26
-                          sigla: "PE"
-                          nome: "Pernambuco"
-                          regiao:
-                            id: 2
-                            sigla: "NE"
-                            nome: "Nordeste"
-        '500':
-          description: Erro interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  municipios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Municipio'
+
   /geo/municipios/{uf}:
     get:
-      tags: [GEO]
-      summary: Lista municípios de um estado
-      description: Retorna todos os municípios de um estado específico
+      tags: [Geografia]
+      summary: Municípios de um Estado
+      description: |
+        Retorna todos os municípios de um estado específico.
+        
+        **Exemplo de uso:**
+        ```bash
+        curl __API_BASE_URL__/geo/municipios/PE \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
       parameters:
-        - in: path
-          name: uf
+        - name: uf
+          in: path
           required: true
+          description: Sigla do estado
           schema:
             type: string
-            minLength: 2
-            maxLength: 2
-          description: Sigla do estado (ex. PE, SP, RJ)
+            example: "PE"
       responses:
         '200':
           description: Lista de municípios do estado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '500':
-          description: Erro interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /geo/municipios/id/{id}:
-    get:
-      tags: [GEO]
-      summary: Busca município por código IBGE
-      description: Retorna informações de um município específico pelo seu código IBGE
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-          description: Código IBGE do município (ex. 2611606 para Recife)
-      responses:
-        '200':
-          description: Município encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: ID inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Município não encontrado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Erro interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                properties:
+                  municipios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Municipio'
+
 components:
   schemas:
-    Tenant:
-      type: object
-      properties:
-        id: 
-          type: string
-        tenantId: 
-          type: string
-          description: Tenant ID
-        name: 
-          type: string
-          description: Tenant name
-        email: 
-          type: string
-          format: email
-          description: Contact email
-        active: 
-          type: boolean
-          description: Is active
-        createdAt: 
-          type: string
-          format: date-time
-        updatedAt: 
-          type: string
-          format: date-time
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        code:
-          type: string
-          example: "OK"
-        data:
-          type: object
-          description: Dados da resposta
-        meta:
-          type: object
-          description: Metadados opcionais
-    ErrorResponse:
-      type: object
-      properties:
-        type:
-          type: string
-          example: "https://retech-core/errors/not-found"
-        title:
-          type: string
-          example: "Not Found"
-        status:
-          type: integer
-          example: 404
-        detail:
-          type: string
-          example: "Recurso não encontrado"
-        instance:
-          type: string
-          example: "/geo/ufs/XX"
-        traceId:
-          type: string
-          description: ID de rastreamento da requisição
     Estado:
       type: object
+      description: Representa um estado brasileiro
       properties:
         id:
           type: integer
-          description: ID do IBGE
+          description: Código IBGE do estado
           example: 26
         sigla:
           type: string
-          description: Sigla do estado
+          description: Sigla UF (2 caracteres)
           example: "PE"
         nome:
           type: string
@@ -535,20 +284,27 @@ components:
           example: "Pernambuco"
         regiao:
           $ref: '#/components/schemas/Regiao'
+
     Regiao:
       type: object
+      description: Região geográfica brasileira
       properties:
         id:
           type: integer
+          description: Código IBGE da região
           example: 2
         sigla:
           type: string
+          description: Sigla da região
           example: "NE"
         nome:
           type: string
+          description: Nome da região
           example: "Nordeste"
+
     Municipio:
       type: object
+      description: Representa um município brasileiro
       properties:
         id:
           type: integer
@@ -564,8 +320,98 @@ components:
         regiao-imediata:
           type: object
           description: Região imediata (nova divisão IBGE)
+
+    Error:
+      type: object
+      description: Resposta de erro padronizada (RFC 7807)
+      properties:
+        type:
+          type: string
+          description: URI que identifica o tipo de erro
+          example: "https://retech-core/errors/not-found"
+        title:
+          type: string
+          description: Resumo do erro
+          example: "Not Found"
+        status:
+          type: integer
+          description: Código HTTP
+          example: 404
+        detail:
+          type: string
+          description: Explicação detalhada do erro
+          example: "Recurso não encontrado"
+
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
+      description: |
+        ## Como usar sua API Key
+        
+        Todas as requisições para endpoints `/geo/*` requerem autenticação via API Key.
+        
+        **Passo 1: Obter sua API Key**
+        
+        Acesse o [Portal do Desenvolvedor](https://core.theretech.com.br/painel/apikeys) e gere uma nova chave.
+        
+        **Passo 2: Usar no header**
+        
+        ```bash
+        curl __API_BASE_URL__/geo/ufs \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+        
+        **Rate Limits:**
+        - Plano Free: 1.000 requests/dia, 60/min
+        - Plano Pro: 10.000 requests/dia, 200/min
+
+  responses:
+    Unauthorized:
+      description: Não autorizado - API Key inválida ou ausente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://retech-core/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "API Key inválida ou ausente. Use o header X-API-Key com uma chave válida."
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://retech-core/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "O recurso solicitado não foi encontrado."
+
+    TooManyRequests:
+      description: Rate limit excedido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://retech-core/errors/rate-limit"
+            title: "Too Many Requests"
+            status: 429
+            detail: "Você excedeu o limite de requisições. Tente novamente mais tarde."
+
+    Maintenance:
+      description: API em manutenção
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://retech-core/errors/maintenance"
+            title: "API em Manutenção"
+            status: 503
+            detail: "A API está temporariamente indisponível para manutenção. Por favor, tente novamente mais tarde."
