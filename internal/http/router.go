@@ -108,6 +108,19 @@ func NewRouter(
 		cepGroup.GET("/:codigo", cepHandler.GetCEP)
 	}
 
+	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção)
+	cnpjHandler := handlers.NewCNPJHandler(m, settings)
+	cnpjGroup := r.Group("/cnpj")
+	cnpjGroup.Use(
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
+	)
+	{
+		cnpjGroup.GET("/:numero", cnpjHandler.GetCNPJ)
+	}
+
 	// Admin endpoints (protegidos por JWT + role SUPER_ADMIN)
 	adminHandler := handlers.NewAdminHandler(tenants, apikeys, users, m)
 	adminGroup := r.Group("/admin")
@@ -141,6 +154,8 @@ func NewRouter(
 		// Cache Management (admin only)
 		adminGroup.GET("/cache/cep/stats", cepHandler.GetCacheStats)
 		adminGroup.DELETE("/cache/cep", cepHandler.ClearCache)
+		adminGroup.GET("/cache/cnpj/stats", cnpjHandler.GetCacheStats)
+		adminGroup.DELETE("/cache/cnpj", cnpjHandler.ClearCache)
 
 		// Activity Logs (admin only)
 		activityHandler := handlers.NewActivityHandler(activityLogs)
