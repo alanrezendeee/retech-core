@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/bootstrap"
+	"github.com/theretech/retech-core/internal/cache"
 	"github.com/theretech/retech-core/internal/config"
 	nethttp "github.com/theretech/retech-core/internal/http"
 	"github.com/theretech/retech-core/internal/http/handlers"
@@ -23,6 +25,21 @@ func main() {
 	m, err := storage.NewMongo(cfg.MongoURI, cfg.MongoDB)
 	if err != nil {
 		log.Fatal().Err(err).Msg("mongo_connect_error")
+	}
+
+	// Redis (opcional - graceful degradation se não configurado)
+	var redisClient *cache.RedisClient
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379" // Default local
+	}
+	
+	redisClient, err = cache.NewRedisClient(redisURL, "", 0, log)
+	if err != nil {
+		log.Warn().Err(err).Msg("⚠️  Redis não disponível, usando apenas MongoDB (performance reduzida)")
+		redisClient = nil // Continua sem Redis (fallback gracioso)
+	} else {
+		log.Info().Msg("✅ Redis conectado - cache ultra-rápido habilitado!")
 	}
 
 	// Executar migrations/seeds
@@ -79,7 +96,7 @@ func main() {
 
 	// Router
 	health := handlers.NewHealthHandler(m.Client)
-	router := nethttp.NewRouter(log, m, health, apikeys, tenants, users, estados, municipios, settings, activityLogs, jwtService)
+	router := nethttp.NewRouter(log, m, redisClient, health, apikeys, tenants, users, estados, municipios, settings, activityLogs, jwtService)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,

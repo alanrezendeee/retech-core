@@ -132,6 +132,8 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
 - [ ] **Operadora**: Identificação + portabilidade
 
 ### **🧾 Validação Fiscal e Compliance** 🆕
+
+#### **APIs Públicas (qualquer CNPJ):**
 - [ ] **NF-e Validation**: Consulta NF-e por chave de 44 dígitos
   - Fonte: Webservice SEFAZ (gratuito e público)
   - Dados: emitente, destinatário, valor, status
@@ -153,6 +155,26 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
   - Cache: 7 dias
   - Custo: Gratuito
   - **Casos de uso:** Inteligência comercial, due diligence
+
+#### **Dados do Próprio Cliente (com autorização):** 🔥 🆕
+- [ ] **Meus Documentos Fiscais**: NF-e auto-sync do cliente
+  - Cliente envia certificado digital A1
+  - Sync automático diário (e-CAC/SEFAZ)
+  - NF-e emitidas + recebidas (últimos 12 meses)
+  - Download XML/PDF (DANFE)
+  - Analytics: volume, valor, top fornecedores/clientes
+  - **Diferencial:** Dashboard fiscal unificado
+  - **Plano:** Business (R$ 99/mês)
+
+- [ ] **Meus Boletos**: Open Finance integrado 🏦
+  - Cliente autoriza via OAuth 2.0
+  - Conexão com múltiplos bancos
+  - Boletos a pagar + a receber
+  - Alertas de vencimento
+  - Projeção de cash flow
+  - **Diferencial:** Dashboard financeiro unificado
+  - **Plano:** Enterprise (R$ 299/mês)
+  - **Prazo:** Requer homologação BACEN (3-4 meses)
 
 ### **🗺️ Geografia Avançada**
 - [ ] **Bairros**: Lista por cidade

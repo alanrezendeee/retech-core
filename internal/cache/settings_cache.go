@@ -52,7 +52,7 @@ func (sc *SettingsCache) Get(ctx context.Context) (*domain.SystemSettings, error
 	if err != nil {
 		// Fallback para defaults se falhar
 		defaultSettings := domain.GetDefaultSettings()
-		return &defaultSettings, nil
+		return defaultSettings, nil
 	}
 	
 	// Atualizar cache

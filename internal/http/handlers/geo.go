@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/theretech/retech-core/internal/cache"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -13,12 +16,14 @@ import (
 type GeoHandler struct {
 	estados    *storage.EstadosRepo
 	municipios *storage.MunicipiosRepo
+	redis      interface{} // interface{} para permitir nil (graceful degradation)
 }
 
-func NewGeoHandler(estados *storage.EstadosRepo, municipios *storage.MunicipiosRepo) *GeoHandler {
+func NewGeoHandler(estados *storage.EstadosRepo, municipios *storage.MunicipiosRepo, redis interface{}) *GeoHandler {
 	return &GeoHandler{
 		estados:    estados,
 		municipios: municipios,
+		redis:      redis,
 	}
 }
 
@@ -44,7 +49,22 @@ type ErrorResponse struct {
 // GET /geo/ufs
 func (h *GeoHandler) ListUFs(c *gin.Context) {
 	ctx := c.Request.Context()
+	query := strings.ToLower(c.Query("q"))
 
+	// ⚡ CACHE REDIS (apenas sem filtro)
+	if query == "" && h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := "geo:ufs:all"
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				c.Header("Content-Type", "application/json")
+				c.String(http.StatusOK, cachedJSON)
+				return // ⚡ <1ms!
+			}
+		}
+	}
+
+	// 🗄️ BUSCAR DO MONGODB
 	estados, err := h.estados.FindAll(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -58,7 +78,6 @@ func (h *GeoHandler) ListUFs(c *gin.Context) {
 	}
 
 	// Aplica filtro opcional (client-side)
-	query := strings.ToLower(c.Query("q"))
 	if query != "" {
 		filtered := []interface{}{}
 		for _, e := range estados {
@@ -75,11 +94,23 @@ func (h *GeoHandler) ListUFs(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
+	response := SuccessResponse{
 		Success: true,
 		Code:    "OK",
 		Data:    estados,
-	})
+	}
+
+	// ✅ SALVAR NO REDIS (cache longo, dados fixos)
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := "geo:ufs:all"
+			if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+				fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetUF retorna um estado pela sigla
@@ -88,6 +119,20 @@ func (h *GeoHandler) GetUF(c *gin.Context) {
 	ctx := c.Request.Context()
 	sigla := strings.ToUpper(c.Param("sigla"))
 
+	// ⚡ CACHE REDIS
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:uf:%s", sigla)
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				c.Header("Content-Type", "application/json")
+				c.String(http.StatusOK, cachedJSON)
+				return // ⚡ <1ms!
+			}
+		}
+	}
+
+	// 🗄️ BUSCAR DO MONGODB
 	estado, err := h.estados.FindBySigla(ctx, sigla)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -110,11 +155,23 @@ func (h *GeoHandler) GetUF(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
+	response := SuccessResponse{
 		Success: true,
 		Code:    "OK",
 		Data:    estado,
-	})
+	}
+
+	// ✅ SALVAR NO REDIS (cache longo, dados fixos)
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:uf:%s", sigla)
+			if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+				fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // ListMunicipios retorna todos os municípios (ou filtra por UF)

@@ -13,6 +13,7 @@ services:
       - ../seeds:/app/seeds:ro
     depends_on:
       - mongo
+      - redis
   mongo:
     image: mongo:7
     ports:
@@ -22,6 +23,14 @@ services:
       - ../scripts:/docker-entrypoint-initdb.d:ro
     environment:
       - MONGO_INITDB_DATABASE=retech_core
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
 volumes:
   mongo-data:
+  redis-data:
 

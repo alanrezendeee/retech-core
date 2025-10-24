@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/theretech/retech-core/internal/cache"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
@@ -17,12 +18,14 @@ import (
 
 type CNPJHandler struct {
 	db       *storage.Mongo
+	redis    interface{} // interface{} para permitir nil (graceful degradation)
 	settings *storage.SettingsRepo
 }
 
-func NewCNPJHandler(db *storage.Mongo, settings *storage.SettingsRepo) *CNPJHandler {
+func NewCNPJHandler(db *storage.Mongo, redis interface{}, settings *storage.SettingsRepo) *CNPJHandler {
 	return &CNPJHandler{
 		db:       db,
+		redis:    redis,
 		settings: settings,
 	}
 }
@@ -54,7 +57,24 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 		settings = domain.GetDefaultSettings() // Fallback para padrões
 	}
 
-	// 1. Tentar buscar no cache (se habilitado)
+	// ⚡ CAMADA 1: REDIS (ultra-rápido, <1ms)
+	if h.redis != nil && settings.Cache.Enabled {
+		redisClient, ok := h.redis.(*cache.RedisClient)
+		if ok {
+			redisKey := fmt.Sprintf("cnpj:%s", cnpj)
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				var cached domain.CNPJ
+				if json.Unmarshal([]byte(cachedJSON), &cached) == nil {
+					cached.Source = "redis-cache"
+					c.JSON(http.StatusOK, cached)
+					return // ⚡ <1ms!
+				}
+			}
+		}
+	}
+
+	// 🗄️ CAMADA 2: MONGODB (backup, ~10ms)
 	collection := h.db.DB.Collection("cnpj_cache")
 
 	if settings.Cache.Enabled {
@@ -65,14 +85,21 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 			cacheTTL := time.Duration(settings.Cache.CNPJTTLDays) * 24 * time.Hour
 			
 			if time.Since(cached.CachedAt) < cacheTTL {
-				cached.Source = "cache"
+				// ✅ Promover para Redis (para próximas requests)
+				if h.redis != nil {
+					if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+						redisKey := fmt.Sprintf("cnpj:%s", cnpj)
+						redisClient.Set(ctx, redisKey, cached, 24*time.Hour)
+					}
+				}
+				cached.Source = "mongodb-cache"
 				c.JSON(http.StatusOK, cached)
-				return
+				return // ~10ms
 			}
 		}
 	}
 
-	// 2. Buscar em Brasil API (fonte principal)
+	// 🌐 CAMADA 3: BRASIL API (API Externa, ~200ms)
 	cnpjData, err := h.fetchBrasilAPI(ctx, cnpj)
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "brasilapi"
@@ -81,16 +108,27 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 		// ✅ NORMALIZAR CNPJ para salvar sem formatação
 		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
-		// Salvar no cache (se habilitado)
+		// Salvar em AMBAS camadas de cache (se habilitado)
 		if settings.Cache.Enabled {
+			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
+			if h.redis != nil {
+				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+					redisKey := fmt.Sprintf("cnpj:%s", cnpj)
+					if err := redisClient.Set(ctx, redisKey, cnpjData, 24*time.Hour); err != nil {
+						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+					}
+				}
+			}
+			
+			// 🗄️ Salvar no MongoDB (L2 - cold cache, 30 dias)
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cnpj": cnpj}, // cnpj já está normalizado
+				bson.M{"cnpj": cnpj},
 				bson.M{"$set": cnpjData},
 				options.Update().SetUpsert(true),
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar CNPJ no cache: %v\n", err)
+				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
 			}
 		}
 
@@ -98,7 +136,7 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 		return
 	}
 
-	// 3. Fallback: ReceitaWS
+	// 🌐 CAMADA 3 (Fallback): RECEITA WS (~300ms)
 	cnpjData, err = h.fetchReceitaWS(ctx, cnpj)
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "receitaws"
@@ -107,16 +145,27 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 		// ✅ NORMALIZAR CNPJ para salvar sem formatação
 		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
-		// Salvar no cache (se habilitado)
+		// Salvar em AMBAS camadas de cache (se habilitado)
 		if settings.Cache.Enabled {
+			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
+			if h.redis != nil {
+				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+					redisKey := fmt.Sprintf("cnpj:%s", cnpj)
+					if err := redisClient.Set(ctx, redisKey, cnpjData, 24*time.Hour); err != nil {
+						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+					}
+				}
+			}
+			
+			// 🗄️ Salvar no MongoDB (L2 - cold cache, 30 dias)
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cnpj": cnpj}, // cnpj já está normalizado
+				bson.M{"cnpj": cnpj},
 				bson.M{"$set": cnpjData},
 				options.Update().SetUpsert(true),
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar CNPJ no cache: %v\n", err)
+				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
 			}
 		}
 

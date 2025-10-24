@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/theretech/retech-core/internal/cache"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,12 +19,14 @@ import (
 
 type CEPHandler struct {
 	db       *storage.Mongo
+	redis    interface{} // interface{} para permitir nil (graceful degradation)
 	settings *storage.SettingsRepo
 }
 
-func NewCEPHandler(db *storage.Mongo, settings *storage.SettingsRepo) *CEPHandler {
+func NewCEPHandler(db *storage.Mongo, redis interface{}, settings *storage.SettingsRepo) *CEPHandler {
 	return &CEPHandler{
 		db:       db,
+		redis:    redis,
 		settings: settings,
 	}
 }
@@ -72,7 +75,24 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		settings = domain.GetDefaultSettings() // Fallback para padrões
 	}
 
-	// 1. Tentar buscar no cache (se habilitado)
+	// ⚡ CAMADA 1: REDIS (ultra-rápido, <1ms)
+	if h.redis != nil && settings.Cache.Enabled {
+		redisClient, ok := h.redis.(*cache.RedisClient)
+		if ok {
+			redisKey := fmt.Sprintf("cep:%s", cep)
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				var cached CEPResponse
+				if json.Unmarshal([]byte(cachedJSON), &cached) == nil {
+					cached.Source = "redis-cache"
+					c.JSON(http.StatusOK, cached)
+					return // ⚡ <1ms!
+				}
+			}
+		}
+	}
+
+	// 🗄️ CAMADA 2: MONGODB (backup, ~10ms)
 	collection := h.db.DB.Collection("cep_cache")
 	
 	if settings.Cache.Enabled {
@@ -83,14 +103,21 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 			cacheTTL := time.Duration(settings.Cache.CEPTTLDays) * 24 * time.Hour
 			cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
 			if time.Since(cachedTime) < cacheTTL {
-				cached.Source = "cache"
+				// ✅ Promover para Redis (para próximas requests)
+				if h.redis != nil {
+					if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+						redisKey := fmt.Sprintf("cep:%s", cep)
+						redisClient.Set(ctx, redisKey, cached, 24*time.Hour)
+					}
+				}
+				cached.Source = "mongodb-cache"
 				c.JSON(http.StatusOK, cached)
-				return
+				return // ~10ms
 			}
 		}
 	}
 
-	// 2. Buscar em ViaCEP (fonte principal)
+	// 🌐 CAMADA 3: VIACEP (API Externa, ~100ms)
 	response, err := h.fetchViaCEP(cep)
 	if err == nil && response.CEP != "" {
 		response.Source = "viacep"
@@ -100,16 +127,27 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
-		// Salvar no cache (se habilitado)
+		// Salvar em AMBAS camadas de cache (se habilitado)
 		if settings.Cache.Enabled {
+			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
+			if h.redis != nil {
+				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+					redisKey := fmt.Sprintf("cep:%s", cep)
+					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+					}
+				}
+			}
+			
+			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
+				bson.M{"cep": cep},
 				bson.M{"$set": response},
-				options.Update().SetUpsert(true), // ✅ Cria se não existir!
+				options.Update().SetUpsert(true),
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
 			}
 		}
 
@@ -117,7 +155,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		return
 	}
 
-	// 3. Fallback: Brasil API
+	// 🌐 CAMADA 3 (Fallback): BRASIL API (~150ms)
 	response, err = h.fetchBrasilAPI(cep)
 	if err == nil && response.CEP != "" {
 		response.Source = "brasilapi"
@@ -127,16 +165,27 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
-		// Salvar no cache (se habilitado)
+		// Salvar em AMBAS camadas de cache (se habilitado)
 		if settings.Cache.Enabled {
+			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
+			if h.redis != nil {
+				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+					redisKey := fmt.Sprintf("cep:%s", cep)
+					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+					}
+				}
+			}
+			
+			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
 			_, err := collection.UpdateOne(
 				ctx,
-				bson.M{"cep": cep}, // cep já está normalizado (linha 48-49)
+				bson.M{"cep": cep},
 				bson.M{"$set": response},
-				options.Update().SetUpsert(true), // ✅ Cria se não existir!
+				options.Update().SetUpsert(true),
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar cache: %v\n", err)
+				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
 			}
 		}
 

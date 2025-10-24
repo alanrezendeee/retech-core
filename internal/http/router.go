@@ -15,6 +15,7 @@ import (
 func NewRouter(
 	log zerolog.Logger,
 	m *storage.Mongo,
+	redisClient interface{}, // interface{} para permitir nil (graceful degradation)
 	health *handlers.HealthHandler,
 	apikeys *storage.APIKeysRepo,
 	tenants *storage.TenantsRepo,
@@ -30,7 +31,7 @@ func NewRouter(
 	// CORS para permitir requisições do frontend
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-		if origin == "https://core.theretech.com.br" || origin == "http://localhost:3000" {
+		if origin == "https://core.theretech.com.br" || origin == "http://localhost:3000" || origin == "http://localhost:3001" || origin == "http://localhost:3002" || origin == "http://localhost:3003" {
 			c.Header("Access-Control-Allow-Origin", origin)
 		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -69,9 +70,9 @@ func NewRouter(
 	r.GET("/public/contact", publicSettingsHandler.GetPublicContact)
 	
 	// Public playground/tools endpoints (sem API Key, rate limit por IP)
-	cepHandler := handlers.NewCEPHandler(m, settings)
-	cnpjHandler := handlers.NewCNPJHandler(m, settings)
-	geoHandler := handlers.NewGeoHandler(estados, municipios)
+	cepHandler := handlers.NewCEPHandler(m, redisClient, settings)
+	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
+	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
 	
 	publicGroup := r.Group("/public")
 	{
