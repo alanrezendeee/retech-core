@@ -53,7 +53,12 @@ func NewRouter(
 		
 		// Se é rota pública, sempre permite CORS
 		if isPublicRoute {
-			c.Header("Access-Control-Allow-Origin", origin)
+			// ✅ Rotas públicas aceitam QUALQUER origem (não precisa estar na lista)
+			if origin != "" {
+				c.Header("Access-Control-Allow-Origin", origin)
+			} else {
+				c.Header("Access-Control-Allow-Origin", "*")
+			}
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
 			c.Header("Access-Control-Allow-Credentials", "true")
