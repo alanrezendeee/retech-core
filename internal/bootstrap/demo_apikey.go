@@ -12,45 +12,58 @@ import (
 )
 
 const (
-	DemoAPIKeyValue  = "rtc_demo_playground_2024"
-	DemoTenantID     = "demo-playground-tenant"
-	DemoTenantName   = "Playground Demo"
+	DemoTenantID   = "demo-playground-tenant"
+	DemoTenantName = "Playground Demo"
 )
 
 // EnsureDemoAPIKey cria/atualiza a API Key especial para o playground público
-func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants *storage.TenantsRepo, db *mongo.Database) error {
+// Agora usa configurações do admin/settings (Playground.APIKey e Playground.RateLimit)
+func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants *storage.TenantsRepo, settings *storage.SettingsRepo, db *mongo.Database) error {
 	fmt.Println("🎯 Verificando API Key Demo para Playground...")
+
+	// Buscar configurações do playground
+	sysSettings, err := settings.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("erro ao buscar settings: %w", err)
+	}
+
+	if !sysSettings.Playground.Enabled {
+		fmt.Println("⚠️ Playground desabilitado nas configurações, pulando...")
+		return nil
+	}
+
+	demoAPIKey := sysSettings.Playground.APIKey
+	if demoAPIKey == "" {
+		demoAPIKey = "rtc_demo_playground_2024" // Fallback
+	}
 
 	// 1. Verificar se tenant demo existe
 	tenantsCollection := db.Collection("tenants")
 	var existingTenant domain.Tenant
-	err := tenantsCollection.FindOne(ctx, bson.M{"tenantId": DemoTenantID}).Decode(&existingTenant)
+	errTenant := tenantsCollection.FindOne(ctx, bson.M{"tenantId": DemoTenantID}).Decode(&existingTenant)
 	
-	if err == mongo.ErrNoDocuments {
-		// 2. Criar tenant demo
+	if errTenant == mongo.ErrNoDocuments {
+		// 2. Criar tenant demo (usando rate limit do settings)
 		fmt.Println("📦 Criando tenant demo...")
 		demoTenant := &domain.Tenant{
-			TenantID: DemoTenantID,
-			Name:     DemoTenantName,
-			Email:    "playground@theretech.com.br",
-			Company:  "Playground Demo",
-			Purpose:  "API Testing & Demo",
-			RateLimit: &domain.RateLimitConfig{
-				RequestsPerDay:    100,  // Limite BEM BAIXO para playground
-				RequestsPerMinute: 10,   // Rate limit agressivo
-			},
+			TenantID:  DemoTenantID,
+			Name:      DemoTenantName,
+			Email:     "playground@theretech.com.br",
+			Company:   "Playground Demo",
+			Purpose:   "API Testing & Demo",
+			RateLimit: &sysSettings.Playground.RateLimit, // Do settings!
 			Active:    true,
 			CreatedAt: time.Now().UTC(),
 			UpdatedAt: time.Now().UTC(),
 		}
 		
-		_, err = tenantsCollection.InsertOne(ctx, demoTenant)
-		if err != nil {
-			return fmt.Errorf("erro ao criar tenant demo: %w", err)
+		_, errInsert := tenantsCollection.InsertOne(ctx, demoTenant)
+		if errInsert != nil {
+			return fmt.Errorf("erro ao criar tenant demo: %w", errInsert)
 		}
 		fmt.Println("✅ Tenant demo criado!")
-	} else if err != nil {
-		return fmt.Errorf("erro ao verificar tenant demo: %w", err)
+	} else if errTenant != nil {
+		return fmt.Errorf("erro ao verificar tenant demo: %w", errTenant)
 	} else {
 		fmt.Println("✅ Tenant demo já existe")
 	}
@@ -61,13 +74,13 @@ func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants
 	err = apikeysCollection.FindOne(ctx, bson.M{"keyId": "rtc_demo_playground"}).Decode(&existingKey)
 	
 	if err == mongo.ErrNoDocuments {
-		// Criar nova API Key demo
-		fmt.Println("🔑 Criando API Key demo...")
+		// Criar nova API Key demo (usando settings.Playground.APIKey)
+		fmt.Printf("🔑 Criando API Key demo: %s\n", demoAPIKey)
 		
 		demoKey := &domain.APIKey{
 			KeyID:     "rtc_demo_playground",
-			KeyHash:   DemoAPIKeyValue, // Usar valor completo como hash (simplificado para demo)
-			Scopes:    []string{"cep", "cnpj", "geo"},
+			KeyHash:   demoAPIKey, // Usar valor do settings
+			Scopes:    sysSettings.Playground.AllowedAPIs, // APIs permitidas do settings
 			OwnerID:   DemoTenantID,
 			ExpiresAt: time.Now().UTC().AddDate(10, 0, 0), // Expira em 10 anos
 			Revoked:   false,
@@ -79,7 +92,7 @@ func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants
 			return fmt.Errorf("erro ao criar API key demo: %w", err)
 		}
 		
-		fmt.Println("✅ API Key demo criada: rtc_demo_playground_2024")
+		fmt.Printf("✅ API Key demo criada: %s\n", demoAPIKey)
 		return nil
 	}
 	
@@ -87,14 +100,15 @@ func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants
 		return fmt.Errorf("erro ao verificar API key demo: %w", err)
 	}
 
-	// API Key já existe - atualizar se necessário
-	fmt.Println("✅ API Key demo já existe")
+	// API Key já existe - atualizar com valores do settings
+	fmt.Println("✅ API Key demo já existe, atualizando com settings...")
 	
-	// Garantir que não está revogada e com scopes corretos
+	// Atualizar keyHash e scopes conforme settings
 	update := bson.M{
 		"$set": bson.M{
+			"keyHash": demoAPIKey,                       // Atualizar chave do settings
 			"revoked": false,
-			"scopes":  []string{"cep", "cnpj", "geo"},
+			"scopes":  sysSettings.Playground.AllowedAPIs, // Atualizar scopes do settings
 		},
 	}
 	
@@ -103,7 +117,7 @@ func EnsureDemoAPIKey(ctx context.Context, apikeys *storage.APIKeysRepo, tenants
 		return fmt.Errorf("erro ao atualizar API key demo: %w", err)
 	}
 
-	fmt.Println("✅ API Key demo atualizada e ativa!")
+	fmt.Printf("✅ API Key demo atualizada: %s (scopes: %v)\n", demoAPIKey, sysSettings.Playground.AllowedAPIs)
 	return nil
 }
 

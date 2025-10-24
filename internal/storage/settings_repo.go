@@ -58,8 +58,9 @@ func (r *SettingsRepo) Update(ctx context.Context, settings *domain.SystemSettin
 			CORS:             settings.CORS,
 			JWT:              settings.JWT,
 			API:              settings.API,
-			Contact:          settings.Contact, // ✅ ADICIONADO
-			Cache:            settings.Cache,   // ✅ ADICIONADO
+			Contact:          settings.Contact,   // ✅ ADICIONADO
+			Cache:            settings.Cache,     // ✅ ADICIONADO
+			Playground:       settings.Playground, // ✅ ADICIONADO
 			CreatedAt:        now,
 			UpdatedAt:        now,
 		}
@@ -88,8 +89,9 @@ func (r *SettingsRepo) Update(ctx context.Context, settings *domain.SystemSettin
 				"cors":             settings.CORS,
 				"jwt":              settings.JWT,
 				"api":              settings.API,
-				"contact":          settings.Contact, // ✅ ADICIONADO
-				"cache":            settings.Cache,   // ✅ ADICIONADO
+				"contact":          settings.Contact,   // ✅ ADICIONADO
+				"cache":            settings.Cache,     // ✅ ADICIONADO
+				"playground":       settings.Playground, // ✅ ADICIONADO
 				"updatedAt":        now,
 			},
 		},

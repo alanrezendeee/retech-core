@@ -89,8 +89,8 @@ func main() {
 		log.Warn().Err(err).Msg("failed to create activity logs indexes")
 	}
 
-	// 🎯 Criar/Atualizar API Key Demo para Playground
-	if err := bootstrap.EnsureDemoAPIKey(context.Background(), apikeys, tenants, m.DB); err != nil {
+	// 🎯 Criar/Atualizar API Key Demo para Playground (usando settings)
+	if err := bootstrap.EnsureDemoAPIKey(context.Background(), apikeys, tenants, settings, m.DB); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure demo API key")
 	}
 

@@ -27,6 +27,9 @@ type SystemSettings struct {
 	// Cache
 	Cache CacheConfig `bson:"cache" json:"cache"`
 
+	// Playground
+	Playground PlaygroundConfig `bson:"playground" json:"playground"`
+
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 }
@@ -64,6 +67,14 @@ type CacheConfig struct {
 	CNPJTTLDays  int  `bson:"cnpjTtlDays" json:"cnpjTtlDays"`     // TTL do cache de CNPJ em dias (1-365)
 	MaxSizeMB    int  `bson:"maxSizeMb" json:"maxSizeMb"`         // Tamanho máximo do cache em MB (futuro)
 	AutoCleanup  bool `bson:"autoCleanup" json:"autoCleanup"`     // Limpeza automática via TTL index
+}
+
+// PlaygroundConfig define a configuração do playground público
+type PlaygroundConfig struct {
+	Enabled     bool             `bson:"enabled" json:"enabled"`               // Habilitar/Desabilitar playground
+	APIKey      string           `bson:"apiKey" json:"apiKey"`                 // API Key demo (editável)
+	RateLimit   RateLimitConfig  `bson:"rateLimit" json:"rateLimit"`           // Rate limit do playground
+	AllowedAPIs []string         `bson:"allowedApis" json:"allowedApis"`       // APIs disponíveis ['cep', 'cnpj', 'geo']
 }
 
 // GetDefaultSettings retorna as configurações padrão do sistema
@@ -113,6 +124,15 @@ func GetDefaultSettings() *SystemSettings {
 			MaxSizeMB:    100,  // 100MB (futuro: monitoramento)
 			AutoCleanup:  true, // MongoDB TTL index ativo
 		},
+		Playground: PlaygroundConfig{
+			Enabled: true, // ✅ Playground habilitado por padrão
+			APIKey:  "rtc_demo_playground_2024", // Chave demo editável
+			RateLimit: RateLimitConfig{
+				RequestsPerDay:    100, // 100 requests/dia (agressivo)
+				RequestsPerMinute: 10,  // 10 requests/minuto
+			},
+			AllowedAPIs: []string{"cep", "cnpj", "geo"}, // APIs públicas
+		},
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -120,10 +140,11 @@ func GetDefaultSettings() *SystemSettings {
 
 // UpdateSystemSettingsRequest representa o payload para atualizar configurações
 type UpdateSystemSettingsRequest struct {
-	DefaultRateLimit *RateLimitConfig `json:"defaultRateLimit,omitempty"`
-	CORS             *CORSConfig      `json:"cors,omitempty"`
-	JWT              *JWTConfig       `json:"jwt,omitempty"`
-	API              *APIConfig       `json:"api,omitempty"`
-	Contact          *ContactConfig   `json:"contact,omitempty"`
-	Cache            *CacheConfig     `json:"cache,omitempty"`
+	DefaultRateLimit *RateLimitConfig   `json:"defaultRateLimit,omitempty"`
+	CORS             *CORSConfig        `json:"cors,omitempty"`
+	JWT              *JWTConfig         `json:"jwt,omitempty"`
+	API              *APIConfig         `json:"api,omitempty"`
+	Contact          *ContactConfig     `json:"contact,omitempty"`
+	Cache            *CacheConfig       `json:"cache,omitempty"`
+	Playground       *PlaygroundConfig  `json:"playground,omitempty"`
 }
