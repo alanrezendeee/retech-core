@@ -89,6 +89,10 @@ func NewRouter(
 	publicSettingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
 	r.GET("/public/contact", publicSettingsHandler.GetPublicContact)
 	
+	// Playground status (público, sem autenticação)
+	playgroundHandler := handlers.NewPlaygroundHandler(settings)
+	r.GET("/public/playground/status", playgroundHandler.GetStatus)
+	
 	// Public playground/tools endpoints (sem API Key, rate limit por IP)
 	cepHandler := handlers.NewCEPHandler(m, redisClient, settings)
 	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
