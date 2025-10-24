@@ -31,6 +31,25 @@ func NewCEPHandler(db *storage.Mongo, redis interface{}, settings *storage.Setti
 	}
 }
 
+// getTTL retorna o TTL configurado no admin/settings (ou 7 dias como padrão)
+func (h *CEPHandler) getTTL(ctx *gin.Context) time.Duration {
+	sysSettings, err := h.settings.Get(ctx.Request.Context())
+	if err != nil || !sysSettings.Cache.Enabled {
+		return 7 * 24 * time.Hour // Padrão: 7 dias
+	}
+	
+	// Validar intervalo (1-365 dias)
+	days := sysSettings.Cache.CEPTTLDays
+	if days < 1 {
+		days = 1
+	}
+	if days > 365 {
+		days = 365
+	}
+	
+	return time.Duration(days) * 24 * time.Hour
+}
+
 // CEPResponse representa o retorno da API de CEP
 type CEPResponse struct {
 	CEP         string  `json:"cep" bson:"cep"`
@@ -128,8 +147,9 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 				if h.redis != nil {
 					if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 						redisKey := fmt.Sprintf("cep:%s", cep)
-						if err := redisClient.Set(ctx, redisKey, cached, 24*time.Hour); err == nil {
-							fmt.Printf("✅ [CEP:%s] Promovido para Redis L1 com sucesso\n", cep)
+						ttl := h.getTTL(c)
+						if err := redisClient.Set(ctx, redisKey, cached, ttl); err == nil {
+							fmt.Printf("✅ [CEP:%s] Promovido para Redis L1 com sucesso (TTL: %v)\n", cep, ttl)
 						} else {
 							fmt.Printf("⚠️ [CEP:%s] Erro ao promover para Redis: %v\n", cep, err)
 						}
@@ -165,10 +185,11 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 					redisKey := fmt.Sprintf("cep:%s", cep)
-					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+					ttl := h.getTTL(c)
+					if err := redisClient.Set(ctx, redisKey, response, ttl); err != nil {
 						fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no Redis: %v\n", cep, err)
 					} else {
-						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: 24h)\n", cep)
+						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: %v)\n", cep, ttl)
 					}
 				}
 			}
@@ -212,10 +233,11 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 					redisKey := fmt.Sprintf("cep:%s", cep)
-					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+					ttl := h.getTTL(c)
+					if err := redisClient.Set(ctx, redisKey, response, ttl); err != nil {
 						fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no Redis: %v\n", cep, err)
 					} else {
-						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: 24h)\n", cep)
+						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: %v)\n", cep, ttl)
 					}
 				}
 			}

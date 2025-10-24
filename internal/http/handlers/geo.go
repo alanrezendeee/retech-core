@@ -191,7 +191,7 @@ func (h *GeoHandler) ListMunicipios(c *gin.Context) {
 			} else {
 				redisKey = "geo:municipios:all"
 			}
-			
+
 			cachedJSON, err := redisClient.Get(ctx, redisKey)
 			if err == nil && cachedJSON != "" {
 				c.Header("Content-Type", "application/json")
@@ -402,4 +402,3 @@ func (h *GeoHandler) GetMunicipio(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
-

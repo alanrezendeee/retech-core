@@ -28,16 +28,36 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 
-	// CORS para permitir requisições do frontend
+	// 🌐 CORS DINÂMICO (lê de admin/settings)
 	r.Use(func(c *gin.Context) {
+		// Buscar settings do sistema (com cache in-memory)
+		ctx := c.Request.Context()
+		sysSettings, err := settings.Get(ctx)
+		
 		origin := c.Request.Header.Get("Origin")
-		if origin == "https://core.theretech.com.br" || origin == "http://localhost:3000" || origin == "http://localhost:3001" || origin == "http://localhost:3002" || origin == "http://localhost:3003" {
-			c.Header("Access-Control-Allow-Origin", origin)
+		
+		// Se CORS desabilitado ou erro, não adiciona headers
+		if err != nil || !sysSettings.CORS.Enabled {
+			c.Next()
+			return
 		}
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Max-Age", "86400")
+		
+		// Verificar se origin está na lista permitida
+		allowed := false
+		for _, allowedOrigin := range sysSettings.CORS.AllowedOrigins {
+			if origin == allowedOrigin {
+				allowed = true
+				break
+			}
+		}
+		
+		if allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Max-Age", "86400")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
