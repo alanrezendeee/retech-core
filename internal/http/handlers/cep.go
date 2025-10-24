@@ -85,10 +85,19 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 				var cached CEPResponse
 				if json.Unmarshal([]byte(cachedJSON), &cached) == nil {
 					cached.Source = "redis-cache"
+					fmt.Printf("✅ [CEP:%s] CACHE HIT → Redis L1 (ultra-rápido)\n", cep)
 					c.JSON(http.StatusOK, cached)
 					return // ⚡ <1ms!
 				}
 			}
+			fmt.Printf("⚠️ [CEP:%s] CACHE MISS → Redis L1 (tentando L2...)\n", cep)
+		}
+	} else {
+		if h.redis == nil {
+			fmt.Printf("⚠️ [CEP:%s] Redis não disponível (graceful degradation)\n", cep)
+		}
+		if !settings.Cache.Enabled {
+			fmt.Printf("⚠️ [CEP:%s] Cache desabilitado nas configurações\n", cep)
 		}
 	}
 
@@ -103,63 +112,38 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 			cacheTTL := time.Duration(settings.Cache.CEPTTLDays) * 24 * time.Hour
 			cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
 			if time.Since(cachedTime) < cacheTTL {
+				fmt.Printf("✅ [CEP:%s] CACHE HIT → MongoDB L2 (válido, promovendo para Redis...)\n", cep)
+				
 				// ✅ Promover para Redis (para próximas requests)
 				if h.redis != nil {
 					if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 						redisKey := fmt.Sprintf("cep:%s", cep)
-						redisClient.Set(ctx, redisKey, cached, 24*time.Hour)
+						if err := redisClient.Set(ctx, redisKey, cached, 24*time.Hour); err == nil {
+							fmt.Printf("✅ [CEP:%s] Promovido para Redis L1 com sucesso\n", cep)
+						} else {
+							fmt.Printf("⚠️ [CEP:%s] Erro ao promover para Redis: %v\n", cep, err)
+						}
 					}
 				}
 				cached.Source = "mongodb-cache"
 				c.JSON(http.StatusOK, cached)
 				return // ~10ms
+			} else {
+				fmt.Printf("⚠️ [CEP:%s] CACHE EXPIRADO → MongoDB L2 (TTL: %v, tentando APIs...)\n", cep, time.Since(cachedTime))
 			}
+		} else {
+			fmt.Printf("⚠️ [CEP:%s] CACHE MISS → MongoDB L2 (tentando APIs externas...)\n", cep)
 		}
 	}
 
 	// 🌐 CAMADA 3: VIACEP (API Externa, ~100ms)
+	fmt.Printf("🌐 [CEP:%s] Buscando em ViaCEP (API externa)...\n", cep)
 	response, err := h.fetchViaCEP(cep)
 	if err == nil && response.CEP != "" {
 		response.Source = "viacep"
 		response.CachedAt = time.Now().Format(time.RFC3339)
 		
-		// ✅ NORMALIZAR CEP para salvar sem traço no cache
-		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
-		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
-
-		// Salvar em AMBAS camadas de cache (se habilitado)
-		if settings.Cache.Enabled {
-			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
-			if h.redis != nil {
-				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
-					redisKey := fmt.Sprintf("cep:%s", cep)
-					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
-						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
-					}
-				}
-			}
-			
-			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
-			_, err := collection.UpdateOne(
-				ctx,
-				bson.M{"cep": cep},
-				bson.M{"$set": response},
-				options.Update().SetUpsert(true),
-			)
-			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
-			}
-		}
-
-		c.JSON(http.StatusOK, response)
-		return
-	}
-
-	// 🌐 CAMADA 3 (Fallback): BRASIL API (~150ms)
-	response, err = h.fetchBrasilAPI(cep)
-	if err == nil && response.CEP != "" {
-		response.Source = "brasilapi"
-		response.CachedAt = time.Now().Format(time.RFC3339)
+		fmt.Printf("✅ [CEP:%s] SUCESSO → ViaCEP (salvando em caches...)\n", cep)
 		
 		// ✅ NORMALIZAR CEP para salvar sem traço no cache
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
@@ -172,7 +156,9 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 					redisKey := fmt.Sprintf("cep:%s", cep)
 					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
-						fmt.Printf("⚠️ Erro ao salvar no Redis: %v\n", err)
+						fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no Redis: %v\n", cep, err)
+					} else {
+						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: 24h)\n", cep)
 					}
 				}
 			}
@@ -185,13 +171,64 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 				options.Update().SetUpsert(true),
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Erro ao salvar no MongoDB: %v\n", err)
+				fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no MongoDB: %v\n", cep, err)
+			} else {
+				fmt.Printf("✅ [CEP:%s] Salvo no MongoDB L2 (TTL: %d dias)\n", cep, settings.Cache.CEPTTLDays)
 			}
 		}
 
 		c.JSON(http.StatusOK, response)
 		return
 	}
+	
+	fmt.Printf("⚠️ [CEP:%s] ERRO em ViaCEP: %v (tentando Brasil API...)\n", cep, err)
+
+	// 🌐 CAMADA 3 (Fallback): BRASIL API (~150ms)
+	fmt.Printf("🌐 [CEP:%s] Buscando em Brasil API (fallback)...\n", cep)
+	response, err = h.fetchBrasilAPI(cep)
+	if err == nil && response.CEP != "" {
+		response.Source = "brasilapi"
+		response.CachedAt = time.Now().Format(time.RFC3339)
+		
+		fmt.Printf("✅ [CEP:%s] SUCESSO → Brasil API (salvando em caches...)\n", cep)
+		
+		// ✅ NORMALIZAR CEP para salvar sem traço no cache
+		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
+		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
+
+		// Salvar em AMBAS camadas de cache (se habilitado)
+		if settings.Cache.Enabled {
+			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
+			if h.redis != nil {
+				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+					redisKey := fmt.Sprintf("cep:%s", cep)
+					if err := redisClient.Set(ctx, redisKey, response, 24*time.Hour); err != nil {
+						fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no Redis: %v\n", cep, err)
+					} else {
+						fmt.Printf("✅ [CEP:%s] Salvo no Redis L1 (TTL: 24h)\n", cep)
+					}
+				}
+			}
+			
+			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
+			_, err := collection.UpdateOne(
+				ctx,
+				bson.M{"cep": cep},
+				bson.M{"$set": response},
+				options.Update().SetUpsert(true),
+			)
+			if err != nil {
+				fmt.Printf("⚠️ [CEP:%s] Erro ao salvar no MongoDB: %v\n", cep, err)
+			} else {
+				fmt.Printf("✅ [CEP:%s] Salvo no MongoDB L2 (TTL: %d dias)\n", cep, settings.Cache.CEPTTLDays)
+			}
+		}
+
+		c.JSON(http.StatusOK, response)
+		return
+	}
+	
+	fmt.Printf("❌ [CEP:%s] ERRO em Brasil API: %v (nenhuma fonte disponível)\n", cep, err)
 
 	// 4. CEP não encontrado
 	c.JSON(http.StatusNotFound, gin.H{
