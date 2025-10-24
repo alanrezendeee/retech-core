@@ -30,14 +30,54 @@ func NewRouter(
 
 	// 🌐 CORS DINÂMICO (lê de admin/settings)
 	r.Use(func(c *gin.Context) {
-		// Buscar settings do sistema (com cache in-memory)
 		ctx := c.Request.Context()
+		origin := c.Request.Header.Get("Origin")
+		path := c.Request.URL.Path
+		
+		// 📋 Rotas públicas SEMPRE têm CORS (independente do settings)
+		publicRoutes := []string{
+			"/health",
+			"/version", 
+			"/docs",
+			"/openapi.yaml",
+			"/public/",
+		}
+		
+		isPublicRoute := false
+		for _, route := range publicRoutes {
+			if len(path) >= len(route) && path[:len(route)] == route {
+				isPublicRoute = true
+				break
+			}
+		}
+		
+		// Se é rota pública, sempre permite CORS
+		if isPublicRoute {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Max-Age", "86400")
+			
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(204)
+				return
+			}
+			c.Next()
+			return
+		}
+		
+		// 🔒 Rotas protegidas: verificar settings
 		sysSettings, err := settings.Get(ctx)
 		
-		origin := c.Request.Header.Get("Origin")
+		// Se erro ao buscar settings, não adiciona CORS (seguro)
+		if err != nil {
+			c.Next()
+			return
+		}
 		
-		// Se CORS desabilitado ou erro, não adiciona headers
-		if err != nil || !sysSettings.CORS.Enabled {
+		// Se CORS desabilitado, não adiciona headers para rotas protegidas
+		if !sysSettings.CORS.Enabled {
 			c.Next()
 			return
 		}
