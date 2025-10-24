@@ -64,6 +64,10 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 	fmt.Printf("Settings recebidas: %+v\n", settings)
 	fmt.Printf("📦 Cache config recebido: enabled=%v, cepTTLDays=%d, autoCleanup=%v\n", 
 		settings.Cache.Enabled, settings.Cache.CEPTTLDays, settings.Cache.AutoCleanup)
+	fmt.Printf("🎮 Playground config recebido: enabled=%v, apiKey=%s, reqPerDay=%d, reqPerMin=%d, allowedAPIs=%v\n",
+		settings.Playground.Enabled, settings.Playground.APIKey, 
+		settings.Playground.RateLimit.RequestsPerDay, settings.Playground.RateLimit.RequestsPerMinute,
+		settings.Playground.AllowedAPIs)
 
 	// ⚠️ IMPORTANTE: O campo environment SEMPRE vem da variável ENV
 	// Não permitir que seja sobrescrito pelo frontend!
