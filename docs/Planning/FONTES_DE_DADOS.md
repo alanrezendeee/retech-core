@@ -1,6 +1,6 @@
 # 📚 FONTES DE DADOS - PESQUISA TÉCNICA
 
-**Atualizado:** 23 de Outubro de 2025
+**Atualizado:** 24 de Outubro de 2025
 
 ---
 
@@ -332,7 +332,20 @@
 | CEIS | Portal | API | 🟢 Grátis | ⭐⭐⭐⭐⭐ | Média |
 | SELIC/CDI | Banco Central | API | 🟢 Grátis | ⭐⭐⭐⭐⭐ | Média |
 
+| **NF-e Validation** 🆕 | SEFAZ | API (SOAP) | 🟢 Grátis | ⭐⭐⭐⭐⭐ | Alta |
+| **Certidões (CND)** 🆕 | TST + Receita | Scraping | 🟢 Grátis | ⭐⭐⭐⭐ | Alta |
+| **Compras Gov** 🆕 | Transparência | API | 🟢 Grátis | ⭐⭐⭐⭐⭐ | Média |
+| **Protestos** 🆕 | Cartórios/Serasa | Scraping/API | 🟡 R$ 1,50/req | ⭐⭐⭐ | Média |
+| **Score de Crédito** 🆕 | Agregado | Local | 🟢 Grátis | ⭐⭐⭐⭐ | Baixa |
+
 ---
 
-**✅ Conclusão**: 22/31 APIs são viáveis com fontes gratuitas! 🎉
+**✅ Conclusão**: 27/36 APIs são viáveis com fontes gratuitas! 🎉
+
+**🆕 5 novas APIs adicionadas:**
+- 3 gratuitas (NF-e, Certidões, Compras Gov)
+- 1 paga opcional (Protestos)
+- 1 proprietária (Score de Crédito)
+
+**Detalhes completos:** Ver `NOVAS_APIS_BOLETOS_NFE.md`
 

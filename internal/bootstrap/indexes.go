@@ -95,7 +95,41 @@ func CreateIndexes(ctx context.Context, db *mongo.Database, log zerolog.Logger) 
 		return err
 	}
 
-	log.Info().Msg("Índices criados com sucesso")
+	// ✅ PERFORMANCE: Índice único para CEP cache (hot path)
+	_, err = db.Collection("cep_cache").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "cep", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		return err
+	}
+
+	// ✅ PERFORMANCE: Índice único para CNPJ cache (hot path)
+	_, err = db.Collection("cnpj_cache").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "cnpj", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		return err
+	}
+
+	// ✅ PERFORMANCE: Índice para tenant_id (hot path - rate limiting)
+	_, err = db.Collection("rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenantId", Value: 1}, {Key: "resetAt", Value: 1}},
+	})
+	if err != nil {
+		return err
+	}
+
+	// ✅ PERFORMANCE: Índice composto para rate_limits_minute
+	_, err = db.Collection("rate_limits_minute").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "tenantId", Value: 1}, {Key: "resetAt", Value: 1}},
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msg("Índices criados com sucesso (incluindo cache performance)")
 	return nil
 }
 
