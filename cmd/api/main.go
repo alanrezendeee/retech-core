@@ -28,18 +28,21 @@ func main() {
 	}
 
 	// Redis (opcional - graceful degradation se não configurado)
-	var redisClient *cache.RedisClient
+	var redisClient interface{} // interface{} para permitir nil
 	redisURL := os.Getenv("REDIS_URL")
-	if redisURL == "" {
-		redisURL = "redis://localhost:6379" // Default local
-	}
 	
-	redisClient, err = cache.NewRedisClient(redisURL, "", 0, log)
-	if err != nil {
-		log.Warn().Err(err).Msg("⚠️  Redis não disponível, usando apenas MongoDB (performance reduzida)")
-		redisClient = nil // Continua sem Redis (fallback gracioso)
+	if redisURL != "" {
+		client, err := cache.NewRedisClient(redisURL, "", 0, log)
+		if err != nil {
+			log.Warn().Err(err).Msg("⚠️  Redis não disponível, usando apenas MongoDB (performance reduzida)")
+			redisClient = nil // Continua sem Redis (fallback gracioso)
+		} else {
+			log.Info().Msg("✅ Redis conectado - cache ultra-rápido habilitado!")
+			redisClient = client
+		}
 	} else {
-		log.Info().Msg("✅ Redis conectado - cache ultra-rápido habilitado!")
+		log.Warn().Msg("⚠️  REDIS_URL não configurado, usando apenas MongoDB")
+		redisClient = nil
 	}
 
 	// Executar migrations/seeds
