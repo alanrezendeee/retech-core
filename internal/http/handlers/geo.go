@@ -182,6 +182,25 @@ func (h *GeoHandler) ListMunicipios(c *gin.Context) {
 	uf := c.Query("uf")
 	query := c.Query("q")
 
+	// ⚡ CACHE REDIS (apenas sem filtros complexos)
+	if query == "" && h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			var redisKey string
+			if uf != "" {
+				redisKey = fmt.Sprintf("geo:municipios:uf:%s", uf)
+			} else {
+				redisKey = "geo:municipios:all"
+			}
+			
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				c.Header("Content-Type", "application/json")
+				c.String(http.StatusOK, cachedJSON)
+				return // ⚡ <1ms!
+			}
+		}
+	}
+
 	// Se tem busca por nome
 	if query != "" {
 		municipios, err := h.municipios.Search(ctx, query, uf)
@@ -218,15 +237,25 @@ func (h *GeoHandler) ListMunicipios(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusOK, SuccessResponse{
+		response := SuccessResponse{
 			Success: true,
 			Code:    "OK",
 			Data:    municipios,
-		})
+		}
+
+		// ✅ SALVAR NO REDIS (dados fixos, cache longo)
+		if h.redis != nil {
+			if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+				redisKey := fmt.Sprintf("geo:municipios:uf:%s", uf)
+				redisClient.Set(ctx, redisKey, response, 24*time.Hour)
+			}
+		}
+
+		c.JSON(http.StatusOK, response)
 		return
 	}
 
-	// Retorna todos (cuidado: pode ser muito grande)
+	// Retorna todos (cuidado: pode ser muito grande - 5.570 municípios)
 	municipios, err := h.municipios.FindAll(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -239,11 +268,21 @@ func (h *GeoHandler) ListMunicipios(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
+	response := SuccessResponse{
 		Success: true,
 		Code:    "OK",
 		Data:    municipios,
-	})
+	}
+
+	// ✅ SALVAR NO REDIS (5.570 municípios, ~500KB)
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := "geo:municipios:all"
+			redisClient.Set(ctx, redisKey, response, 24*time.Hour)
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // ListMunicipiosByUF retorna municípios de um estado específico
@@ -251,6 +290,19 @@ func (h *GeoHandler) ListMunicipios(c *gin.Context) {
 func (h *GeoHandler) ListMunicipiosByUF(c *gin.Context) {
 	ctx := c.Request.Context()
 	uf := strings.ToUpper(c.Param("uf"))
+
+	// ⚡ CACHE REDIS
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:municipios:uf:%s", uf)
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				c.Header("Content-Type", "application/json")
+				c.String(http.StatusOK, cachedJSON)
+				return // ⚡ <1ms!
+			}
+		}
+	}
 
 	municipios, err := h.municipios.FindByUF(ctx, uf)
 	if err != nil {
@@ -264,11 +316,21 @@ func (h *GeoHandler) ListMunicipiosByUF(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
+	response := SuccessResponse{
 		Success: true,
 		Code:    "OK",
 		Data:    municipios,
-	})
+	}
+
+	// ✅ SALVAR NO REDIS
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:municipios:uf:%s", uf)
+			redisClient.Set(ctx, redisKey, response, 24*time.Hour)
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetMunicipio retorna um município pelo ID do IBGE
@@ -287,6 +349,19 @@ func (h *GeoHandler) GetMunicipio(c *gin.Context) {
 			Instance: c.Request.URL.Path,
 		})
 		return
+	}
+
+	// ⚡ CACHE REDIS
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:municipio:id:%d", id)
+			cachedJSON, err := redisClient.Get(ctx, redisKey)
+			if err == nil && cachedJSON != "" {
+				c.Header("Content-Type", "application/json")
+				c.String(http.StatusOK, cachedJSON)
+				return // ⚡ <1ms!
+			}
+		}
 	}
 
 	municipio, err := h.municipios.FindByID(ctx, id)
@@ -311,10 +386,20 @@ func (h *GeoHandler) GetMunicipio(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
+	response := SuccessResponse{
 		Success: true,
 		Code:    "OK",
 		Data:    municipio,
-	})
+	}
+
+	// ✅ SALVAR NO REDIS
+	if h.redis != nil {
+		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
+			redisKey := fmt.Sprintf("geo:municipio:id:%d", id)
+			redisClient.Set(ctx, redisKey, response, 24*time.Hour)
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
