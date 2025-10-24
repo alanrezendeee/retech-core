@@ -67,6 +67,19 @@ func NewRouter(
 	// Public endpoints
 	publicSettingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
 	r.GET("/public/contact", publicSettingsHandler.GetPublicContact)
+	
+	// Public playground/tools endpoints (sem API Key, rate limit por IP)
+	cepHandler := handlers.NewCEPHandler(m, settings)
+	cnpjHandler := handlers.NewCNPJHandler(m, settings)
+	geoHandler := handlers.NewGeoHandler(estados, municipios)
+	
+	publicGroup := r.Group("/public")
+	{
+		publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
+		publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
+		publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
+		publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
+	}
 
 	// Auth endpoints (públicos)
 	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, settings, jwtService)
@@ -79,7 +92,6 @@ func NewRouter(
 	}
 
 	// GEO endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
-	geoHandler := handlers.NewGeoHandler(estados, municipios)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
 		maintenanceMiddleware.Middleware(),  // Verifica manutenção
@@ -97,7 +109,6 @@ func NewRouter(
 	}
 
 	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
-	cepHandler := handlers.NewCEPHandler(m, settings)
 	cepGroup := r.Group("/cep")
 	cepGroup.Use(
 		maintenanceMiddleware.Middleware(),  // Verifica manutenção
@@ -111,7 +122,6 @@ func NewRouter(
 	}
 
 	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
-	cnpjHandler := handlers.NewCNPJHandler(m, settings)
 	cnpjGroup := r.Group("/cnpj")
 	cnpjGroup.Use(
 		maintenanceMiddleware.Middleware(),   // Verifica manutenção
