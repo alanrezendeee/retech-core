@@ -50,6 +50,9 @@ type CEPResponse struct {
 // GET /cep/:codigo
 // Consulta CEP com cache, ViaCEP como principal e Brasil API como fallback
 func (h *CEPHandler) GetCEP(c *gin.Context) {
+	// ⏱️ Iniciar medição de tempo do servidor (SEM rede)
+	startTime := time.Now()
+	
 	cep := c.Param("codigo")
 
 	// Limpar CEP (remover pontos e traços)
@@ -68,6 +71,13 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	
+	// ⏱️ Adicionar header com tempo de processamento do servidor (ao final da função)
+	defer func() {
+		serverTime := time.Since(startTime)
+		c.Header("X-Server-Time-Ms", fmt.Sprintf("%.2f", float64(serverTime.Microseconds())/1000.0))
+		fmt.Printf("⏱️ [CEP:%s] Tempo de processamento do servidor: %.2fms\n", cep, float64(serverTime.Microseconds())/1000.0)
+	}()
 
 	// Carregar configurações de cache
 	settings, err := h.settings.Get(ctx)
