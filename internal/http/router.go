@@ -74,13 +74,15 @@ func NewRouter(
 	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
 	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
 	
-	publicGroup := r.Group("/public")
-	{
-		publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
-		publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
-		publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
-		publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
-	}
+	// 🔒 ROTAS PÚBLICAS DESABILITADAS (usar API Key Demo no playground)
+	// Motivo: Prevenir abuso. Playground usa API Key "rtc_demo_playground" com rate limit agressivo.
+	// publicGroup := r.Group("/public")
+	// {
+	// 	publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
+	// 	publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
+	// 	publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
+	// 	publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
+	// }
 
 	// Auth endpoints (públicos)
 	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, settings, jwtService)
