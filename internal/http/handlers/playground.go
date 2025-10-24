@@ -44,9 +44,10 @@ func (h *PlaygroundHandler) GetStatus(c *gin.Context) {
 
 	// Playground habilitado
 	c.JSON(http.StatusOK, gin.H{
-		"enabled": true,
-		"message": "Playground disponível",
-		"allowedApis": sysSettings.Playground.AllowedAPIs,
+		"enabled":     true,
+		"message":     "Playground disponível",
+		"apiKey":      sysSettings.Playground.APIKey,      // ✅ Retorna API Key
+		"allowedApis": sysSettings.Playground.AllowedAPIs, // ✅ Retorna APIs permitidas
 	})
 }
 
