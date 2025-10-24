@@ -1,7 +1,7 @@
 # 🚀 ROADMAP RETECH CORE API
 
-**Atualizado:** 23 de Outubro de 2025  
-**Status:** Fase 1 Concluída ✅ | Fase 2 Em Andamento 🔵
+**Atualizado:** 24 de Outubro de 2025  
+**Status:** Fase 1 Concluída ✅ | Fase 2 Em Andamento 🔵 (2/6 APIs - 33%)
 
 ---
 
@@ -67,24 +67,26 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 - [x] `GET /cep/:codigo` - Busca por CEP
 - [x] Integração: ViaCEP (gratuito)
 - [x] Fallback: Brasil API
-- [x] Cache: 7 dias (configurável via admin)
+- [x] Cache: 7 dias (configurável via admin: TTL dinâmico 1-365 dias)
 - [x] Coordenadas geográficas
 - [x] Normalização automática (com/sem traço)
 - [x] Performance: ~5ms (cache) / ~50ms (ViaCEP)
-- [x] Admin: Configurações de cache editáveis
+- [x] Admin: Configurações de cache (enabled, TTL, auto-cleanup, stats, clear)
+- [x] Scope: `cep` (controle granular de acesso)
 
 ### **🏢 CNPJ (DISPONÍVEL)** ✅
 - [x] `GET /cnpj/:numero` - Consulta CNPJ
 - [x] Fonte: Brasil API (gratuita, Receita Federal)
 - [x] Fallback: ReceitaWS
-- [x] Cache local: 30 dias
-- [x] Validação: Dígito verificador
+- [x] Cache local: 30 dias (configurável via admin)
+- [x] Validação: Dígito verificador + normalização
 - [x] Dados: razão social, nome fantasia, situação
 - [x] QSA: Quadro de sócios e administradores
 - [x] CNAEs: Atividade principal + secundárias
 - [x] Endereço completo + contatos
 - [x] Performance: ~10ms (cache) / ~200ms (Brasil API)
-- [x] Admin: Stats + Clear cache
+- [x] Admin: Configurações de cache + stats + clear cache
+- [x] Scope: `cnpj` (controle granular de acesso)
 
 ### **💵 Moedas**
 - [ ] `GET /moedas/cotacao` - Cotações em tempo real
@@ -323,21 +325,61 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪
 
 ## 🎯 PRÓXIMOS PASSOS
 
-1. **CNPJ API** (Prioridade Alta)
-   - Scraping Receita Federal
-   - Cache 30 dias
-   - Validação de número
-
-2. **Moedas API** (Prioridade Alta)
+1. **Moedas API** (Prioridade Alta) 🔜
    - Banco Central API
    - Cotações real-time
    - Histórico 30 dias
 
-3. **Bancos API** (Prioridade Média)
+2. **Bancos API** (Prioridade Alta) 🔜
    - Dados STR Banco Central
    - Cache permanente
    - Lista completa COMPE/ISPB
 
+3. **FIPE API** (Prioridade Média) 🔜
+   - Tabela FIPE
+   - Preços de veículos
+   - Cache 7 dias
+
 ---
 
-**🚀 Rumo às 31 APIs! Vamos nessa!**
+## 🆕 ATUALIZAÇÕES RECENTES (24/10/2025)
+
+### **🏢 API CNPJ Implementada** ✅
+- GET /cnpj/:numero completo
+- Brasil API + ReceitaWS fallback
+- Cache 30 dias configurável
+- Validação CNPJ + normalização
+- Admin settings completo
+- 100% funcional e testado
+
+### **🔒 Sistema de Scopes Completo** ✅
+- Scopes granulares: `geo`, `cep`, `cnpj`, `all`
+- Proteção em todas as rotas públicas
+- Validação automática de permissões
+- Frontend com seleção visual (checkboxes)
+- Backend retrocompatível (aceita `geo:read` e `geo`)
+- Documentação completa em `docs/SCOPES_ANALYSIS.md`
+
+### **⚙️ Admin Settings Aprimorado** ✅
+- Cache CEP: TTL configurável (1-365 dias)
+- Cache CNPJ: TTL configurável (1-365 dias)
+- Stats de cache em tempo real
+- Limpeza manual com AlertDialog
+- Validação de inputs (onBlur)
+- Auto-cleanup via TTL index MongoDB
+
+### **🐛 Correções de Bugs** ✅
+- TTL inputs agora aceitam campo vazio durante digitação
+- Cache normalizando CEP/CNPJ antes de salvar
+- Settings salvando `contact` e `cache` corretamente
+- Upsert habilitado em cache (cria se não existir)
+
+### **📚 Documentação** ✅
+- `SCOPES_ANALYSIS.md` - Análise completa do sistema
+- `SCOPES_SYSTEM.md` - Guia de uso atualizado
+- `CHECKLIST_POS_IMPLEMENTACAO.md` - Processo padronizado
+- Redoc atualizado com CNPJ
+
+---
+
+**🚀 Próxima sessão: Moedas API! Rumo às 31 APIs! Vamos nessa!**
