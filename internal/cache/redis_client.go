@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -16,28 +17,50 @@ type RedisClient struct {
 }
 
 // NewRedisClient cria um novo cliente Redis
-func NewRedisClient(addr, password string, db int, log zerolog.Logger) (*RedisClient, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		Password:     password,
-		DB:           db,
-		PoolSize:     50,              // Pool de 50 conexões
-		MinIdleConns: 10,              // Mínimo de 10 conexões idle
-		DialTimeout:  5 * time.Second, // Timeout de conexão
-		ReadTimeout:  3 * time.Second, // Timeout de leitura
-		WriteTimeout: 3 * time.Second, // Timeout de escrita
-	})
+// Aceita tanto URL completa (redis://...) quanto addr simples (host:port)
+func NewRedisClient(urlOrAddr, password string, db int, log zerolog.Logger) (*RedisClient, error) {
+	var client *redis.Client
+	
+	// Se começa com "redis://", parsear como URL
+	if len(urlOrAddr) > 8 && urlOrAddr[:8] == "redis://" {
+		opt, err := redis.ParseURL(urlOrAddr)
+		if err != nil {
+			log.Error().Err(err).Str("url", urlOrAddr).Msg("❌ Erro ao parsear REDIS_URL")
+			return nil, fmt.Errorf("erro ao parsear REDIS_URL: %w", err)
+		}
+		
+		// Configurar pool e timeouts
+		opt.PoolSize = 50
+		opt.MinIdleConns = 10
+		opt.DialTimeout = 5 * time.Second
+		opt.ReadTimeout = 3 * time.Second
+		opt.WriteTimeout = 3 * time.Second
+		
+		client = redis.NewClient(opt)
+	} else {
+		// Formato antigo: addr + password separados
+		client = redis.NewClient(&redis.Options{
+			Addr:         urlOrAddr,
+			Password:     password,
+			DB:           db,
+			PoolSize:     50,
+			MinIdleConns: 10,
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  3 * time.Second,
+			WriteTimeout: 3 * time.Second,
+		})
+	}
 
 	// Testar conexão
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		log.Error().Err(err).Msg("❌ Falha ao conectar no Redis")
+		log.Error().Err(err).Str("url", urlOrAddr).Msg("❌ Falha ao conectar no Redis")
 		return nil, err
 	}
 
-	log.Info().Str("addr", addr).Msg("✅ Redis conectado com sucesso")
+	log.Info().Msg("⚡ Redis conectado - cache ultra-rápido habilitado!")
 
 	return &RedisClient{
 		client: client,
