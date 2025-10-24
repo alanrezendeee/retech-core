@@ -52,7 +52,7 @@ type CEPResponse struct {
 func (h *CEPHandler) GetCEP(c *gin.Context) {
 	// ⏱️ Iniciar medição de tempo do servidor (SEM rede)
 	startTime := time.Now()
-	
+
 	cep := c.Param("codigo")
 
 	// Limpar CEP (remover pontos e traços)
@@ -71,7 +71,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	
+
 	// ⏱️ Adicionar header com tempo de processamento do servidor (ao final da função)
 	defer func() {
 		serverTime := time.Since(startTime)
@@ -113,7 +113,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 
 	// 🗄️ CAMADA 2: MONGODB (backup, ~10ms)
 	collection := h.db.DB.Collection("cep_cache")
-	
+
 	if settings.Cache.Enabled {
 		var cached CEPResponse
 		err := collection.FindOne(ctx, bson.M{"cep": cep}).Decode(&cached)
@@ -123,7 +123,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 			cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
 			if time.Since(cachedTime) < cacheTTL {
 				fmt.Printf("✅ [CEP:%s] CACHE HIT → MongoDB L2 (válido, promovendo para Redis...)\n", cep)
-				
+
 				// ✅ Promover para Redis (para próximas requests)
 				if h.redis != nil {
 					if redisClient, ok := h.redis.(*cache.RedisClient); ok {
@@ -152,9 +152,9 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	if err == nil && response.CEP != "" {
 		response.Source = "viacep"
 		response.CachedAt = time.Now().Format(time.RFC3339)
-		
+
 		fmt.Printf("✅ [CEP:%s] SUCESSO → ViaCEP (salvando em caches...)\n", cep)
-		
+
 		// ✅ NORMALIZAR CEP para salvar sem traço no cache
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
@@ -172,7 +172,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
 			_, err := collection.UpdateOne(
 				ctx,
@@ -190,7 +190,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 		return
 	}
-	
+
 	fmt.Printf("⚠️ [CEP:%s] ERRO em ViaCEP: %v (tentando Brasil API...)\n", cep, err)
 
 	// 🌐 CAMADA 3 (Fallback): BRASIL API (~150ms)
@@ -199,9 +199,9 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	if err == nil && response.CEP != "" {
 		response.Source = "brasilapi"
 		response.CachedAt = time.Now().Format(time.RFC3339)
-		
+
 		fmt.Printf("✅ [CEP:%s] SUCESSO → Brasil API (salvando em caches...)\n", cep)
-		
+
 		// ✅ NORMALIZAR CEP para salvar sem traço no cache
 		response.CEP = strings.ReplaceAll(response.CEP, "-", "")
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
@@ -219,7 +219,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 🗄️ Salvar no MongoDB (L2 - cold cache, 7 dias)
 			_, err := collection.UpdateOne(
 				ctx,
@@ -237,7 +237,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 		return
 	}
-	
+
 	fmt.Printf("❌ [CEP:%s] ERRO em Brasil API: %v (nenhuma fonte disponível)\n", cep, err)
 
 	// 4. CEP não encontrado
@@ -390,11 +390,11 @@ func (h *CEPHandler) GetCacheStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"totalCached":   totalCached,
-		"recentCached":  recentCached, // últimas 24h
-		"cacheEnabled":  settings.Cache.Enabled,
-		"cacheTTLDays":  settings.Cache.CEPTTLDays,
-		"autoCleanup":   settings.Cache.AutoCleanup,
+		"totalCached":  totalCached,
+		"recentCached": recentCached, // últimas 24h
+		"cacheEnabled": settings.Cache.Enabled,
+		"cacheTTLDays": settings.Cache.CEPTTLDays,
+		"autoCleanup":  settings.Cache.AutoCleanup,
 	})
 }
 
@@ -413,7 +413,7 @@ func (h *CEPHandler) ClearCache(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Cache limpo com sucesso",
-		"deletedCount":  result.DeletedCount,
+		"message":      "Cache limpo com sucesso",
+		"deletedCount": result.DeletedCount,
 	})
 }
