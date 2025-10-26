@@ -33,15 +33,16 @@ func NewRouter(
 		ctx := c.Request.Context()
 		origin := c.Request.Header.Get("Origin")
 		method := c.Request.Method
+		path := c.Request.URL.Path
 
 		// 🔍 DEBUG: Log de todas as requests
-		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, c.Request.URL.Path, origin)
+		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, path, origin)
 
 		// 🔒 Buscar settings (sem fallbacks ou exceções)
 		sysSettings, err := settings.Get(ctx)
 		if err != nil {
 			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - BLOQUEANDO CORS\n", err)
-			
+
 			// Se é OPTIONS, retornar erro de CORS
 			if method == "OPTIONS" {
 				c.JSON(403, gin.H{
@@ -57,13 +58,13 @@ func NewRouter(
 			return
 		}
 
-		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n", 
+		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n",
 			sysSettings.CORS.Enabled, sysSettings.CORS.AllowedOrigins)
 
 		// ❌ Se CORS desabilitado, retornar erro claro
 		if !sysSettings.CORS.Enabled {
 			fmt.Printf("[CORS] ❌ CORS desabilitado globalmente\n")
-			
+
 			// Se é OPTIONS ou tem Origin header, retornar erro de CORS
 			if method == "OPTIONS" || origin != "" {
 				c.JSON(403, gin.H{
@@ -90,7 +91,7 @@ func NewRouter(
 
 		if !allowed && origin != "" {
 			fmt.Printf("[CORS] ❌ Origin '%s' não está na lista permitida: %v\n", origin, sysSettings.CORS.AllowedOrigins)
-			
+
 			// Retornar erro de CORS explícito
 			if method == "OPTIONS" {
 				c.JSON(403, gin.H{
@@ -102,7 +103,7 @@ func NewRouter(
 				c.Abort()
 				return
 			}
-			
+
 			// Para requests normais, não adicionar headers CORS (browser bloqueará)
 			c.Next()
 			return
