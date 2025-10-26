@@ -41,41 +41,31 @@ func NewRouter(
 		// 🔒 Buscar settings (sem fallbacks ou exceções)
 		sysSettings, err := settings.Get(ctx)
 		if err != nil {
-			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - BLOQUEANDO CORS\n", err)
-
-			// Se é OPTIONS, retornar erro de CORS
+			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - SEM headers CORS\n", err)
+			
+			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
+			// Browser bloqueará por falta dos headers
 			if method == "OPTIONS" {
-				c.JSON(403, gin.H{
-					"type":   "https://retech-core/errors/cors-error",
-					"title":  "CORS Error",
-					"status": 403,
-					"detail": "CORS não configurado. Entre em contato com o administrador.",
-				})
-				c.Abort()
+				c.AbortWithStatus(204)
 				return
 			}
 			c.Next()
 			return
 		}
 
-		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n",
+		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n", 
 			sysSettings.CORS.Enabled, sysSettings.CORS.AllowedOrigins)
 
-		// ❌ Se CORS desabilitado, retornar erro claro
+		// ❌ Se CORS desabilitado, não adicionar headers (browser bloqueará)
 		if !sysSettings.CORS.Enabled {
-			fmt.Printf("[CORS] ❌ CORS desabilitado globalmente\n")
-
-			// Se é OPTIONS ou tem Origin header, retornar erro de CORS
-			if method == "OPTIONS" || origin != "" {
-				c.JSON(403, gin.H{
-					"type":   "https://retech-core/errors/cors-disabled",
-					"title":  "CORS Desabilitado",
-					"status": 403,
-					"detail": fmt.Sprintf("CORS está desabilitado. Origin '%s' não permitido. Configure em /admin/settings.", origin),
-				})
-				c.Abort()
+			fmt.Printf("[CORS] ❌ CORS desabilitado - não adicionando headers\n")
+			
+			// ✅ BEST PRACTICE: Responder OPTIONS com 204, mas SEM headers CORS
+			if method == "OPTIONS" {
+				c.AbortWithStatus(204)
 				return
 			}
+			// Para requests normais, processar normalmente mas sem headers CORS
 			c.Next()
 			return
 		}
@@ -91,20 +81,13 @@ func NewRouter(
 
 		if !allowed && origin != "" {
 			fmt.Printf("[CORS] ❌ Origin '%s' não está na lista permitida: %v\n", origin, sysSettings.CORS.AllowedOrigins)
-
-			// Retornar erro de CORS explícito
+			
+			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
 			if method == "OPTIONS" {
-				c.JSON(403, gin.H{
-					"type":   "https://retech-core/errors/cors-origin-not-allowed",
-					"title":  "Origin Não Permitido",
-					"status": 403,
-					"detail": fmt.Sprintf("Origin '%s' não está na lista de origins permitidos. Origins permitidos: %v", origin, sysSettings.CORS.AllowedOrigins),
-				})
-				c.Abort()
+				c.AbortWithStatus(204)
 				return
 			}
-
-			// Para requests normais, não adicionar headers CORS (browser bloqueará)
+			// Para requests normais, processar normalmente mas sem headers CORS
 			c.Next()
 			return
 		}
