@@ -28,90 +28,58 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 
-	// 🌐 CORS DINÂMICO (lê de admin/settings)
+	// 🌐 CORS DINÂMICO (segue EXATAMENTE admin/settings)
 	r.Use(func(c *gin.Context) {
 		ctx := c.Request.Context()
 		origin := c.Request.Header.Get("Origin")
-		path := c.Request.URL.Path
 		method := c.Request.Method
 
 		// 🔍 DEBUG: Log de todas as requests
-		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, path, origin)
+		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, c.Request.URL.Path, origin)
 
-		// 📋 Rotas públicas SEMPRE têm CORS (independente do settings)
-		publicRoutes := []string{
-			"/health",
-			"/version",
-			"/docs",
-			"/openapi.yaml",
-			"/public/",
-		}
-
-		isPublicRoute := false
-		for _, route := range publicRoutes {
-			if len(path) >= len(route) && path[:len(route)] == route {
-				isPublicRoute = true
-				break
-			}
-		}
-
-		// Se é rota pública, sempre permite CORS
-		if isPublicRoute {
-			// ✅ Rotas públicas aceitam QUALQUER origem (não precisa estar na lista)
-			if origin != "" {
-				c.Header("Access-Control-Allow-Origin", origin)
-			} else {
-				c.Header("Access-Control-Allow-Origin", "*")
-			}
-			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
-			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Max-Age", "86400")
-
-			if c.Request.Method == "OPTIONS" {
-				c.AbortWithStatus(204)
+		// 🔒 Buscar settings (sem fallbacks ou exceções)
+		sysSettings, err := settings.Get(ctx)
+		if err != nil {
+			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - BLOQUEANDO CORS\n", err)
+			
+			// Se é OPTIONS, retornar erro de CORS
+			if method == "OPTIONS" {
+				c.JSON(403, gin.H{
+					"type":   "https://retech-core/errors/cors-error",
+					"title":  "CORS Error",
+					"status": 403,
+					"detail": "CORS não configurado. Entre em contato com o administrador.",
+				})
+				c.Abort()
 				return
 			}
 			c.Next()
 			return
 		}
 
-		// 🔒 Rotas protegidas: verificar settings
-		sysSettings, err := settings.Get(ctx)
+		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n", 
+			sysSettings.CORS.Enabled, sysSettings.CORS.AllowedOrigins)
 
-		// Se erro ao buscar settings, permite CORS de localhost (dev mode)
-		if err != nil {
-			fmt.Printf("[CORS] Erro ao buscar settings: %v\n", err)
-			// ✅ Permite localhost em desenvolvimento (primeira instalação)
-			if origin != "" && (len(origin) >= 16 && origin[:16] == "http://localhost") {
-				fmt.Printf("[CORS] Permitindo localhost em dev mode\n")
-				c.Header("Access-Control-Allow-Origin", origin)
-				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
-				c.Header("Access-Control-Allow-Credentials", "true")
-				c.Header("Access-Control-Max-Age", "86400")
-			}
-			c.Next()
-			return
-		}
-		fmt.Printf("[CORS] Settings OK, CORS.Enabled=%v\n", sysSettings.CORS.Enabled)
-
-		// Se CORS desabilitado, ainda permite localhost (dev mode)
+		// ❌ Se CORS desabilitado, retornar erro claro
 		if !sysSettings.CORS.Enabled {
-			// ✅ Permite localhost mesmo com CORS desabilitado (dev mode)
-			if origin != "" && (len(origin) >= 16 && origin[:16] == "http://localhost") {
-				fmt.Printf("[CORS] CORS desabilitado, mas permitindo localhost\n")
-				c.Header("Access-Control-Allow-Origin", origin)
-				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
-				c.Header("Access-Control-Allow-Credentials", "true")
-				c.Header("Access-Control-Max-Age", "86400")
+			fmt.Printf("[CORS] ❌ CORS desabilitado globalmente\n")
+			
+			// Se é OPTIONS ou tem Origin header, retornar erro de CORS
+			if method == "OPTIONS" || origin != "" {
+				c.JSON(403, gin.H{
+					"type":   "https://retech-core/errors/cors-disabled",
+					"title":  "CORS Desabilitado",
+					"status": 403,
+					"detail": fmt.Sprintf("CORS está desabilitado. Origin '%s' não permitido. Configure em /admin/settings.", origin),
+				})
+				c.Abort()
+				return
 			}
 			c.Next()
 			return
 		}
 
-		// Verificar se origin está na lista permitida
+		// ✅ CORS habilitado: verificar se origin está na lista
 		allowed := false
 		for _, allowedOrigin := range sysSettings.CORS.AllowedOrigins {
 			if origin == allowedOrigin {
@@ -120,15 +88,36 @@ func NewRouter(
 			}
 		}
 
-		if allowed {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
-			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Max-Age", "86400")
+		if !allowed && origin != "" {
+			fmt.Printf("[CORS] ❌ Origin '%s' não está na lista permitida: %v\n", origin, sysSettings.CORS.AllowedOrigins)
+			
+			// Retornar erro de CORS explícito
+			if method == "OPTIONS" {
+				c.JSON(403, gin.H{
+					"type":   "https://retech-core/errors/cors-origin-not-allowed",
+					"title":  "Origin Não Permitido",
+					"status": 403,
+					"detail": fmt.Sprintf("Origin '%s' não está na lista de origins permitidos. Origins permitidos: %v", origin, sysSettings.CORS.AllowedOrigins),
+				})
+				c.Abort()
+				return
+			}
+			
+			// Para requests normais, não adicionar headers CORS (browser bloqueará)
+			c.Next()
+			return
 		}
 
-		if c.Request.Method == "OPTIONS" {
+		// ✅ Origin permitido: adicionar headers CORS
+		fmt.Printf("[CORS] ✅ Origin permitido - adicionando headers\n")
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		// Responder preflight requests
+		if method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
