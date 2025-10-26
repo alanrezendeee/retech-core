@@ -42,7 +42,7 @@ func NewRouter(
 		sysSettings, err := settings.Get(ctx)
 		if err != nil {
 			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - SEM headers CORS\n", err)
-			
+
 			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
 			// Browser bloqueará por falta dos headers
 			if method == "OPTIONS" {
@@ -53,13 +53,13 @@ func NewRouter(
 			return
 		}
 
-		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n", 
+		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n",
 			sysSettings.CORS.Enabled, sysSettings.CORS.AllowedOrigins)
 
 		// ❌ Se CORS desabilitado, não adicionar headers (browser bloqueará)
 		if !sysSettings.CORS.Enabled {
 			fmt.Printf("[CORS] ❌ CORS desabilitado - não adicionando headers\n")
-			
+
 			// ✅ BEST PRACTICE: Responder OPTIONS com 204, mas SEM headers CORS
 			if method == "OPTIONS" {
 				c.AbortWithStatus(204)
@@ -81,7 +81,7 @@ func NewRouter(
 
 		if !allowed && origin != "" {
 			fmt.Printf("[CORS] ❌ Origin '%s' não está na lista permitida: %v\n", origin, sysSettings.CORS.AllowedOrigins)
-			
+
 			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
 			if method == "OPTIONS" {
 				c.AbortWithStatus(204)
