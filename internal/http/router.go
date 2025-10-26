@@ -33,16 +33,20 @@ func NewRouter(
 		ctx := c.Request.Context()
 		origin := c.Request.Header.Get("Origin")
 		path := c.Request.URL.Path
-		
+		method := c.Request.Method
+
+		// 🔍 DEBUG: Log de todas as requests
+		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, path, origin)
+
 		// 📋 Rotas públicas SEMPRE têm CORS (independente do settings)
 		publicRoutes := []string{
 			"/health",
-			"/version", 
+			"/version",
 			"/docs",
 			"/openapi.yaml",
 			"/public/",
 		}
-		
+
 		isPublicRoute := false
 		for _, route := range publicRoutes {
 			if len(path) >= len(route) && path[:len(route)] == route {
@@ -50,7 +54,7 @@ func NewRouter(
 				break
 			}
 		}
-		
+
 		// Se é rota pública, sempre permite CORS
 		if isPublicRoute {
 			// ✅ Rotas públicas aceitam QUALQUER origem (não precisa estar na lista)
@@ -63,7 +67,7 @@ func NewRouter(
 			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
 			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Max-Age", "86400")
-			
+
 			if c.Request.Method == "OPTIONS" {
 				c.AbortWithStatus(204)
 				return
@@ -71,22 +75,42 @@ func NewRouter(
 			c.Next()
 			return
 		}
-		
+
 		// 🔒 Rotas protegidas: verificar settings
 		sysSettings, err := settings.Get(ctx)
-		
-		// Se erro ao buscar settings, não adiciona CORS (seguro)
+
+		// Se erro ao buscar settings, permite CORS de localhost (dev mode)
 		if err != nil {
+			fmt.Printf("[CORS] Erro ao buscar settings: %v\n", err)
+			// ✅ Permite localhost em desenvolvimento (primeira instalação)
+			if origin != "" && (len(origin) >= 16 && origin[:16] == "http://localhost") {
+				fmt.Printf("[CORS] Permitindo localhost em dev mode\n")
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+				c.Header("Access-Control-Allow-Credentials", "true")
+				c.Header("Access-Control-Max-Age", "86400")
+			}
 			c.Next()
 			return
 		}
-		
-		// Se CORS desabilitado, não adiciona headers para rotas protegidas
+		fmt.Printf("[CORS] Settings OK, CORS.Enabled=%v\n", sysSettings.CORS.Enabled)
+
+		// Se CORS desabilitado, ainda permite localhost (dev mode)
 		if !sysSettings.CORS.Enabled {
+			// ✅ Permite localhost mesmo com CORS desabilitado (dev mode)
+			if origin != "" && (len(origin) >= 16 && origin[:16] == "http://localhost") {
+				fmt.Printf("[CORS] CORS desabilitado, mas permitindo localhost\n")
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+				c.Header("Access-Control-Allow-Credentials", "true")
+				c.Header("Access-Control-Max-Age", "86400")
+			}
 			c.Next()
 			return
 		}
-		
+
 		// Verificar se origin está na lista permitida
 		allowed := false
 		for _, allowedOrigin := range sysSettings.CORS.AllowedOrigins {
@@ -95,7 +119,7 @@ func NewRouter(
 				break
 			}
 		}
-		
+
 		if allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -129,20 +153,20 @@ func NewRouter(
 	r.GET("/version", handlers.Version)
 	r.GET("/docs", handlers.DocsHTML)
 	r.GET("/openapi.yaml", handlers.OpenAPIYAML)
-	
+
 	// Public endpoints
 	publicSettingsHandler := handlers.NewSettingsHandler(settings, activityLogs)
 	r.GET("/public/contact", publicSettingsHandler.GetPublicContact)
-	
+
 	// Playground status (público, sem autenticação)
 	playgroundHandler := handlers.NewPlaygroundHandler(settings)
 	r.GET("/public/playground/status", playgroundHandler.GetStatus)
-	
+
 	// Public playground/tools endpoints (sem API Key, rate limit por IP)
 	cepHandler := handlers.NewCEPHandler(m, redisClient, settings)
 	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
 	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
-	
+
 	// 🔒 ROTAS PÚBLICAS DESABILITADAS (usar API Key Demo no playground)
 	// Motivo: Prevenir abuso. Playground usa API Key "rtc_demo_playground" com rate limit agressivo.
 	// publicGroup := r.Group("/public")
@@ -166,11 +190,11 @@ func NewRouter(
 	// GEO endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	geoGroup := r.Group("/geo")
 	geoGroup.Use(
-		maintenanceMiddleware.Middleware(),  // Verifica manutenção
-		auth.AuthAPIKey(apikeys),            // Requer API Key válida
-		auth.RequireScope(apikeys, "geo"),   // ✅ Verifica scope 'geo' ou 'all'
-		rateLimiter.Middleware(),            // Aplica rate limiting
-		usageLogger.Middleware(),            // Loga uso
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		auth.RequireScope(apikeys, "geo"),  // ✅ Verifica scope 'geo' ou 'all'
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
 	)
 	{
 		geoGroup.GET("/ufs", geoHandler.ListUFs)
@@ -183,11 +207,11 @@ func NewRouter(
 	// CEP endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	cepGroup := r.Group("/cep")
 	cepGroup.Use(
-		maintenanceMiddleware.Middleware(),  // Verifica manutenção
-		auth.AuthAPIKey(apikeys),            // Requer API Key válida
-		auth.RequireScope(apikeys, "cep"),   // ✅ Verifica scope 'cep' ou 'all'
-		rateLimiter.Middleware(),            // Aplica rate limiting
-		usageLogger.Middleware(),            // Loga uso
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		auth.RequireScope(apikeys, "cep"),  // ✅ Verifica scope 'cep' ou 'all'
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
 	)
 	{
 		cepGroup.GET("/:codigo", cepHandler.GetCEP)
@@ -196,11 +220,11 @@ func NewRouter(
 	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
 	cnpjGroup := r.Group("/cnpj")
 	cnpjGroup.Use(
-		maintenanceMiddleware.Middleware(),   // Verifica manutenção
-		auth.AuthAPIKey(apikeys),             // Requer API Key válida
-		auth.RequireScope(apikeys, "cnpj"),   // ✅ Verifica scope 'cnpj' ou 'all'
-		rateLimiter.Middleware(),             // Aplica rate limiting
-		usageLogger.Middleware(),             // Loga uso
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		auth.RequireScope(apikeys, "cnpj"), // ✅ Verifica scope 'cnpj' ou 'all'
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
 	)
 	{
 		cnpjGroup.GET("/:numero", cnpjHandler.GetCNPJ)
