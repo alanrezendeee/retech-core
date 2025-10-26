@@ -1,0 +1,332 @@
+{
+  "info": {
+    "name": "Retech Core - CORS Testing",
+    "_postman_id": "cors-test-collection",
+    "description": "Collection para testar configuração de CORS em todas as rotas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check (Rota Pública)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/health",
+          "host": ["{{BASE_URL}}"],
+          "path": ["health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"CORS headers present\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Methods\");",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Headers\");",
+              "});",
+              "",
+              "pm.test(\"Origin is allowed\", function () {",
+              "    var origin = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+              "    pm.expect(origin).to.be.oneOf([\"http://localhost:3000\", \"*\"]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. OPTIONS Preflight (Rota Pública)",
+      "request": {
+        "method": "OPTIONS",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          },
+          {
+            "key": "Access-Control-Request-Method",
+            "value": "GET",
+            "type": "text"
+          },
+          {
+            "key": "Access-Control-Request-Headers",
+            "value": "Content-Type, Authorization",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/public/playground/status",
+          "host": ["{{BASE_URL}}"],
+          "path": ["public", "playground", "status"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 204\", function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.test(\"CORS preflight headers present\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Methods\");",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Headers\");",
+              "    pm.response.to.have.header(\"Access-Control-Max-Age\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Playground Status (Rota Pública)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/public/playground/status",
+          "host": ["{{BASE_URL}}"],
+          "path": ["public", "playground", "status"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"CORS headers present for public route\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "    var origin = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+              "    pm.expect(origin).to.be.oneOf([\"http://localhost:3000\", \"*\"]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Admin Settings GET (Rota Protegida - localhost permitido)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{AUTH_TOKEN}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/admin/settings",
+          "host": ["{{BASE_URL}}"],
+          "path": ["admin", "settings"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 401\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+              "});",
+              "",
+              "pm.test(\"CORS headers present for localhost\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "    var origin = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+              "    pm.expect(origin).to.equal(\"http://localhost:3000\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Admin Settings GET (Origin NÃO permitido)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "https://malicious-site.com",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{AUTH_TOKEN}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/admin/settings",
+          "host": ["{{BASE_URL}}"],
+          "path": ["admin", "settings"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"CORS headers should NOT be present for unauthorized origin\", function () {",
+              "    var origin = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+              "    // Se CORS.Enabled=true e origin não está na lista, não deve ter header",
+              "    // Se CORS.Enabled=false e origin não é localhost, não deve ter header",
+              "    if (origin) {",
+              "        pm.expect(origin).to.not.equal(\"https://malicious-site.com\");",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. CEP API (Rota Protegida com API Key)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "{{API_KEY}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/cep/01310100",
+          "host": ["{{BASE_URL}}"],
+          "path": ["cep", "01310100"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"CORS headers present for localhost\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Admin Settings PUT (Salvar Configurações)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "http://localhost:3000",
+            "type": "text"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{AUTH_TOKEN}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"defaultRateLimit\": {\n    \"requestsPerDay\": 1000,\n    \"requestsPerMinute\": 60\n  },\n  \"cors\": {\n    \"enabled\": true,\n    \"allowedOrigins\": [\n      \"https://core.theretech.com.br\",\n      \"http://localhost:3000\",\n      \"http://localhost:3001\",\n      \"http://localhost:3002\",\n      \"http://localhost:3003\"\n    ]\n  },\n  \"jwt\": {\n    \"accessTokenTTL\": 900,\n    \"refreshTokenTTL\": 604800\n  },\n  \"api\": {\n    \"version\": \"1.0.0\",\n    \"environment\": \"development\",\n    \"maintenance\": false\n  },\n  \"contact\": {\n    \"whatsapp\": \"48999616679\",\n    \"email\": \"suporte@theretech.com.br\",\n    \"phone\": \"+55 48 99961-6679\"\n  },\n  \"cache\": {\n    \"enabled\": true,\n    \"cepTtlDays\": 7,\n    \"cnpjTtlDays\": 30,\n    \"maxSizeMb\": 100,\n    \"autoCleanup\": true\n  },\n  \"playground\": {\n    \"enabled\": true,\n    \"apiKey\": \"rtc_demo_playground_2024\",\n    \"rateLimit\": {\n      \"requestsPerDay\": 100,\n      \"requestsPerMinute\": 10\n    },\n    \"allowedApis\": [\"cep\", \"cnpj\", \"geo\"]\n  }\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/admin/settings",
+          "host": ["{{BASE_URL}}"],
+          "path": ["admin", "settings"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"CORS headers present\", function () {",
+              "    pm.response.to.have.header(\"Access-Control-Allow-Origin\");",
+              "});",
+              "",
+              "pm.test(\"Response has success message\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"sucesso\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "AUTH_TOKEN",
+      "value": "seu_token_jwt_aqui",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY",
+      "value": "sua_api_key_aqui",
+      "type": "string"
+    }
+  ]
+}
+
