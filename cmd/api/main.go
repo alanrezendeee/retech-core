@@ -104,7 +104,7 @@ func main() {
 	)
 
 	// Router
-	health := handlers.NewHealthHandler(m.Client)
+	health := handlers.NewHealthHandler(m.Client, redisClient) // ✅ Passar Redis também
 	router := nethttp.NewRouter(log, m, redisClient, health, apikeys, tenants, users, estados, municipios, settings, activityLogs, jwtService)
 
 	srv := &http.Server{
