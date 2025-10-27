@@ -97,14 +97,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		// Fallback para defaults se settings não encontrado
 		sysSettings = domain.GetDefaultSettings()
 	}
-	
+
 	// ✅ Atualizar TTLs do JWT Service dinamicamente
 	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
 	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)
-	
-	fmt.Printf("🔑 [Login] JWT TTLs: Access=%ds, Refresh=%ds\n", 
+
+	fmt.Printf("🔑 [Login] JWT TTLs: Access=%ds, Refresh=%ds\n",
 		sysSettings.JWT.AccessTokenTTL, sysSettings.JWT.RefreshTokenTTL)
-	
+
 	// Gerar tokens com TTLs dinâmicos
 	accessToken, err := h.jwt.GenerateAccessToken(user)
 	if err != nil {
@@ -273,11 +273,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		sysSettings = domain.GetDefaultSettings()
 	}
-	
+
 	// ✅ Atualizar TTLs do JWT Service
 	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
 	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)
-	
+
 	// Gerar tokens JWT com TTLs dinâmicos
 	accessToken, err := h.jwt.GenerateAccessToken(user)
 	if err != nil {
@@ -407,7 +407,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	if err != nil {
 		sysSettings = domain.GetDefaultSettings()
 	}
-	
+
 	// ✅ Atualizar TTLs
 	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
 	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)

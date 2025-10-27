@@ -15,10 +15,10 @@ var (
 
 // JWTClaims representa as claims customizadas do JWT
 type JWTClaims struct {
-	UserID   string           `json:"userId"`
-	Email    string           `json:"email"`
-	Role     domain.UserRole  `json:"role"`
-	TenantID string           `json:"tenantId,omitempty"`
+	UserID   string          `json:"userId"`
+	Email    string          `json:"email"`
+	Role     domain.UserRole `json:"role"`
+	TenantID string          `json:"tenantId,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -134,4 +134,3 @@ func (s *JWTService) SetAccessTTL(ttl time.Duration) {
 func (s *JWTService) SetRefreshTTL(ttl time.Duration) {
 	s.refreshTTL = ttl
 }
-
