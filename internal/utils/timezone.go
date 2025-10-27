@@ -21,4 +21,3 @@ func GetTodayBrasilia() string {
 func GetStartOfMonthBrasilia() string {
 	return GetBrasiliaTime().Format("2006-01")
 }
-

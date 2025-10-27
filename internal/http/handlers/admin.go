@@ -11,10 +11,10 @@ import (
 )
 
 type AdminHandler struct {
-	tenants    *storage.TenantsRepo
-	apikeys    *storage.APIKeysRepo
-	users      *storage.UsersRepo
-	db         *storage.Mongo
+	tenants *storage.TenantsRepo
+	apikeys *storage.APIKeysRepo
+	users   *storage.UsersRepo
+	db      *storage.Mongo
 }
 
 func NewAdminHandler(tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo, users *storage.UsersRepo, m *storage.Mongo) *AdminHandler {
@@ -53,15 +53,15 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"totalTenants":   totalTenants,
-		"activeTenants":  activeTenants,
-		"totalAPIKeys":   totalKeys,
-		"activeAPIKeys":  activeKeys,
-		"totalUsers":     totalUsers,
-		"requestsToday":  requestsToday,
-		"requestsMonth":  requestsMonth,
-		"systemUptime":   time.Since(time.Now()).String(), // TODO: real uptime
-		"timestamp":      time.Now(),
+		"totalTenants":  totalTenants,
+		"activeTenants": activeTenants,
+		"totalAPIKeys":  totalKeys,
+		"activeAPIKeys": activeKeys,
+		"totalUsers":    totalUsers,
+		"requestsToday": requestsToday,
+		"requestsMonth": requestsMonth,
+		"systemUptime":  time.Since(time.Now()).String(), // TODO: real uptime
+		"timestamp":     time.Now(),
 	})
 }
 
@@ -113,7 +113,7 @@ func (h *AdminHandler) GetUsage(c *gin.Context) {
 			"_id":   "$date",
 			"count": bson.M{"$sum": 1},
 		}},
-		{"$sort": bson.M{"_id": -1}},  // ✅ DESC (mais recente primeiro)
+		{"$sort": bson.M{"_id": -1}}, // ✅ DESC (mais recente primeiro)
 	}
 
 	cursor, err := h.db.DB.Collection("api_usage_logs").Aggregate(ctx, pipeline)
@@ -161,8 +161,8 @@ func (h *AdminHandler) GetUsage(c *gin.Context) {
 	// Uso por API (nova métrica!)
 	pipelineAPIs := []bson.M{
 		{"$group": bson.M{
-			"_id":   "$apiName",
-			"count": bson.M{"$sum": 1},
+			"_id":             "$apiName",
+			"count":           bson.M{"$sum": 1},
 			"avgResponseTime": bson.M{"$avg": "$responseTime"},
 		}},
 		{"$sort": bson.M{"count": -1}},
@@ -203,8 +203,8 @@ func (h *AdminHandler) GetAnalytics(c *gin.Context) {
 	// Top 5 APIs mais usadas
 	pipelineTopAPIs := []bson.M{
 		{"$group": bson.M{
-			"_id":   "$apiName",
-			"count": bson.M{"$sum": 1},
+			"_id":             "$apiName",
+			"count":           bson.M{"$sum": 1},
 			"avgResponseTime": bson.M{"$avg": "$responseTime"},
 		}},
 		{"$sort": bson.M{"count": -1}},
@@ -266,13 +266,12 @@ func (h *AdminHandler) GetAnalytics(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"summary": gin.H{
-			"totalRequests":  totalRequests,
-			"requestsToday":  requestsToday,
-			"requestsMonth":  requestsMonth,
+			"totalRequests": totalRequests,
+			"requestsToday": requestsToday,
+			"requestsMonth": requestsMonth,
 		},
-		"topAPIs":        topAPIs,        // Top 5 APIs com percentuais
-		"apisByDay":      apisByDay,      // Uso por API nos últimos 7 dias
-		"apisByTenant":   apisByTenant,   // Uso por tenant + API
+		"topAPIs":      topAPIs,      // Top 5 APIs com percentuais
+		"apisByDay":    apisByDay,    // Uso por API nos últimos 7 dias
+		"apisByTenant": apisByTenant, // Uso por tenant + API
 	})
 }
-

@@ -505,8 +505,8 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 	pipelineAPIs := []bson.M{
 		{"$match": bson.M{"tenantId": tenantID}},
 		{"$group": bson.M{
-			"_id":   "$apiName",
-			"count": bson.M{"$sum": 1},
+			"_id":             "$apiName",
+			"count":           bson.M{"$sum": 1},
 			"avgResponseTime": bson.M{"$avg": "$responseTime"},
 		}},
 		{"$sort": bson.M{"count": -1}},

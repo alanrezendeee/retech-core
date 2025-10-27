@@ -38,7 +38,7 @@ func (h *CEPHandler) getTTL(ctx *gin.Context) time.Duration {
 	if err != nil || !sysSettings.Cache.Enabled {
 		return 7 * 24 * time.Hour // Padrão: 7 dias
 	}
-	
+
 	// Validar intervalo (1-365 dias)
 	days := sysSettings.Cache.CEPTTLDays
 	if days < 1 {
@@ -47,7 +47,7 @@ func (h *CEPHandler) getTTL(ctx *gin.Context) time.Duration {
 	if days > 365 {
 		days = 365
 	}
-	
+
 	return time.Duration(days) * 24 * time.Hour
 }
 

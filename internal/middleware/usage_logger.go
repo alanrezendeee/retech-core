@@ -64,9 +64,9 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 			ResponseTime: responseTime,
 			IPAddress:    c.ClientIP(),
 			UserAgent:    c.Request.UserAgent(),
-			Timestamp:    time.Now(), // ✅ UTC para ordenação
+			Timestamp:    time.Now(),                       // ✅ UTC para ordenação
 			Date:         nowBrasilia.Format("2006-01-02"), // ✅ Brasília para agrupamento
-			Hour:         nowBrasilia.Hour(), // ✅ Brasília para hora local
+			Hour:         nowBrasilia.Hour(),               // ✅ Brasília para hora local
 		}
 
 		// Inserir em background (não bloquear response)
