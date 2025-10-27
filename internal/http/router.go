@@ -233,6 +233,11 @@ func NewRouter(
 		adminGroup.GET("/settings", settingsHandler.Get)
 		adminGroup.PUT("/settings", settingsHandler.Update)
 
+		// Playground API Key Management (admin only)
+		playgroundAPIKeyHandler := handlers.NewPlaygroundAPIKeyHandler(apikeys, settings, m.DB)
+		adminGroup.POST("/playground/apikey/generate", playgroundAPIKeyHandler.GenerateAPIKey)
+		adminGroup.POST("/playground/apikey/rotate", playgroundAPIKeyHandler.RotateAPIKey)
+
 		// Cache Management (admin only)
 		adminGroup.GET("/cache/cep/stats", cepHandler.GetCacheStats)
 		adminGroup.DELETE("/cache/cep", cepHandler.ClearCache)
