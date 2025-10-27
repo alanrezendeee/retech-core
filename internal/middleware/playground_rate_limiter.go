@@ -28,24 +28,24 @@ func NewPlaygroundRateLimiter(db *mongo.Database, settings *storage.SettingsRepo
 
 // PlaygroundRateLimit representa rate limit por IP + API Key demo
 type PlaygroundRateLimit struct {
-	ID              string    `bson:"_id" json:"id"`
-	IPAddress       string    `bson:"ipAddress" json:"ipAddress"`
-	APIKey          string    `bson:"apiKey" json:"apiKey"`
-	Date            string    `bson:"date" json:"date"`           // YYYY-MM-DD
-	Minute          string    `bson:"minute" json:"minute"`       // YYYY-MM-DD HH:MM
-	CountPerDay     int64     `bson:"countPerDay" json:"countPerDay"`
-	CountPerMinute  int64     `bson:"countPerMinute" json:"countPerMinute"`
-	LastRequest     time.Time `bson:"lastRequest" json:"lastRequest"`
-	UpdatedAt       time.Time `bson:"updatedAt" json:"updatedAt"`
+	ID             string    `bson:"_id" json:"id"`
+	IPAddress      string    `bson:"ipAddress" json:"ipAddress"`
+	APIKey         string    `bson:"apiKey" json:"apiKey"`
+	Date           string    `bson:"date" json:"date"`     // YYYY-MM-DD
+	Minute         string    `bson:"minute" json:"minute"` // YYYY-MM-DD HH:MM
+	CountPerDay    int64     `bson:"countPerDay" json:"countPerDay"`
+	CountPerMinute int64     `bson:"countPerMinute" json:"countPerMinute"`
+	LastRequest    time.Time `bson:"lastRequest" json:"lastRequest"`
+	UpdatedAt      time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
 // GlobalPlaygroundLimit representa limite global da API Key demo
 type GlobalPlaygroundLimit struct {
-	ID              string    `bson:"_id" json:"id"`
-	APIKey          string    `bson:"apiKey" json:"apiKey"`
-	Date            string    `bson:"date" json:"date"`           // YYYY-MM-DD
-	TotalRequests   int64     `bson:"totalRequests" json:"totalRequests"`
-	UpdatedAt       time.Time `bson:"updatedAt" json:"updatedAt"`
+	ID            string    `bson:"_id" json:"id"`
+	APIKey        string    `bson:"apiKey" json:"apiKey"`
+	Date          string    `bson:"date" json:"date"` // YYYY-MM-DD
+	TotalRequests int64     `bson:"totalRequests" json:"totalRequests"`
+	UpdatedAt     time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
 // Middleware aplica rate limiting específico para playground
@@ -70,7 +70,7 @@ func (prl *PlaygroundRateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		apiKey := apiKeyValue.(string)
-		
+
 		// ✅ 4. VERIFICAR SE É API KEY DEMO (começa com rtc_demo_)
 		if !isDemoAPIKey(apiKey) {
 			fmt.Println("✅ [PLAYGROUND SECURITY] API Key normal, passando...")
@@ -130,7 +130,7 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 
 	// Buscar rate limit por IP
 	coll := prl.db.Collection("playground_rate_limits")
-	
+
 	var ipLimit PlaygroundRateLimit
 	err := coll.FindOne(ctx, bson.M{
 		"ipAddress": clientIP,
@@ -155,7 +155,7 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 
 	// Verificar limite diário por IP
 	if ipLimit.CountPerDay >= rateLimit.RequestsPerDay {
-		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n", 
+		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n",
 			clientIP, ipLimit.CountPerDay, rateLimit.RequestsPerDay)
 
 		c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", rateLimit.RequestsPerDay))
@@ -174,7 +174,7 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 
 	// Verificar limite por minuto por IP
 	if ipLimit.CountPerMinute >= rateLimit.RequestsPerMinute {
-		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite por minuto por IP excedido: %s (%d >= %d)\n", 
+		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite por minuto por IP excedido: %s (%d >= %d)\n",
 			clientIP, ipLimit.CountPerMinute, rateLimit.RequestsPerMinute)
 
 		c.Header("X-RateLimit-Limit-Minute", fmt.Sprintf("%d", rateLimit.RequestsPerMinute))
@@ -206,7 +206,7 @@ func (prl *PlaygroundRateLimiter) checkGlobalRateLimit(ctx context.Context, apiK
 	globalLimit := rateLimit.RequestsPerDay * 10
 
 	coll := prl.db.Collection("playground_global_limits")
-	
+
 	var globalLimitRecord GlobalPlaygroundLimit
 	err := coll.FindOne(ctx, bson.M{
 		"apiKey": apiKey,
@@ -226,7 +226,7 @@ func (prl *PlaygroundRateLimiter) checkGlobalRateLimit(ctx context.Context, apiK
 
 	// Verificar limite global
 	if globalLimitRecord.TotalRequests >= globalLimit {
-		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite global da API Key demo excedido: %d >= %d\n", 
+		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite global da API Key demo excedido: %d >= %d\n",
 			globalLimitRecord.TotalRequests, globalLimit)
 
 		c.JSON(http.StatusTooManyRequests, gin.H{
@@ -245,10 +245,10 @@ func (prl *PlaygroundRateLimiter) checkGlobalRateLimit(ctx context.Context, apiK
 // applyThrottling aplica delay mínimo entre requests (anti-spam)
 func (prl *PlaygroundRateLimiter) applyThrottling(ctx context.Context, clientIP, apiKey string, c *gin.Context) {
 	now := time.Now()
-	
+
 	// Buscar última request do IP
 	coll := prl.db.Collection("playground_rate_limits")
-	
+
 	var lastRequest PlaygroundRateLimit
 	err := coll.FindOne(ctx, bson.M{
 		"ipAddress": clientIP,
@@ -288,7 +288,7 @@ func (prl *PlaygroundRateLimiter) incrementCounters(ctx context.Context, clientI
 
 	// Incrementar contador por IP
 	collIP := prl.db.Collection("playground_rate_limits")
-	
+
 	opts := options.Update().SetUpsert(true)
 	_, err := collIP.UpdateOne(ctx, bson.M{
 		"ipAddress": clientIP,
@@ -312,7 +312,7 @@ func (prl *PlaygroundRateLimiter) incrementCounters(ctx context.Context, clientI
 
 	// Incrementar contador global
 	collGlobal := prl.db.Collection("playground_global_limits")
-	
+
 	_, err = collGlobal.UpdateOne(ctx, bson.M{
 		"apiKey": apiKey,
 		"date":   today,
@@ -335,11 +335,11 @@ func (prl *PlaygroundRateLimiter) incrementCounters(ctx context.Context, clientI
 func isPlaygroundRoute(path string) bool {
 	playgroundRoutes := []string{
 		"/public/cep",
-		"/public/cnpj", 
+		"/public/cnpj",
 		"/public/geo",
 		"/public/playground/status",
 	}
-	
+
 	for _, route := range playgroundRoutes {
 		if path == route || (len(path) > len(route) && path[:len(route)] == route) {
 			return true
