@@ -17,6 +17,7 @@ import (
 	"github.com/theretech/retech-core/internal/auth"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
+	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -432,15 +433,15 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 	// Total de requests
 	totalRequests, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"tenantId": tenantID})
 
-	// Requests hoje
-	today := time.Now().Format("2006-01-02")
+	// Requests hoje (timezone Brasília)
+	today := utils.GetTodayBrasilia()
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"tenantId": tenantID,
 		"date":     today,
 	})
 
-	// Requests mês
-	startOfMonth := time.Now().Format("2006-01")
+	// Requests mês (timezone Brasília)
+	startOfMonth := utils.GetStartOfMonthBrasilia()
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"tenantId": tenantID,
 		"date":     bson.M{"$regex": "^" + startOfMonth},
@@ -549,8 +550,8 @@ func (h *TenantHandler) GetMyStats(c *gin.Context) {
 	// 1. Total de API Keys ativas
 	activeKeys, _ := h.apikeys.CountByOwner(ctx, tenantID)
 
-	// 2. Buscar rate limit atual do tenant
-	today := time.Now().Format("2006-01-02")
+	// 2. Buscar rate limit atual do tenant (timezone Brasília)
+	today := utils.GetTodayBrasilia()
 	var rateLimit domain.RateLimit
 	err := h.db.DB.Collection("rate_limits").FindOne(ctx, bson.M{
 		"tenantId": tenantID,
@@ -589,8 +590,8 @@ func (h *TenantHandler) GetMyStats(c *gin.Context) {
 		percentage = (float64(requestsToday) / float64(dailyLimit)) * 100
 	}
 
-	// 5. Requests do mês (aproximado via rate_limits)
-	startOfMonth := time.Now().Format("2006-01")
+	// 5. Requests do mês (timezone Brasília)
+	startOfMonth := utils.GetStartOfMonthBrasilia()
 	var rateLimitsMonth []domain.RateLimit
 	cursor, _ := h.db.DB.Collection("rate_limits").Find(ctx, bson.M{
 		"tenantId": tenantID,
