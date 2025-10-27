@@ -98,6 +98,11 @@ func (prl *PlaygroundRateLimiter) Middleware() gin.HandlerFunc {
 		playgroundConfig := settings.Playground
 		rateLimit := playgroundConfig.RateLimit
 
+		// 🔍 DEBUG: Log rate limits configurados
+		fmt.Printf("📊 [PLAYGROUND SECURITY] Rate Limits Configurados:\n")
+		fmt.Printf("   - Requests/Dia: %d\n", rateLimit.RequestsPerDay)
+		fmt.Printf("   - Requests/Min: %d\n", rateLimit.RequestsPerMinute)
+
 		// ✅ 6. APLICAR RATE LIMITING POR IP
 		if !prl.checkIPRateLimit(ctx, clientIP, apiKey, rateLimit, c) {
 			return // Rate limit excedido, response já enviado
@@ -153,9 +158,14 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 		}
 	}
 
+	// 🔍 DEBUG: Log estado atual
+	fmt.Printf("📊 [PLAYGROUND SECURITY] IP: %s | Count: %d/%d (dia) | %d/%d (min)\n",
+		clientIP, ipLimit.CountPerDay, rateLimit.RequestsPerDay,
+		ipLimit.CountPerMinute, rateLimit.RequestsPerMinute)
+
 	// Verificar limite diário por IP
 	if ipLimit.CountPerDay >= rateLimit.RequestsPerDay {
-		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n",
+		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n", 
 			clientIP, ipLimit.CountPerDay, rateLimit.RequestsPerDay)
 
 		c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", rateLimit.RequestsPerDay))
