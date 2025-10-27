@@ -337,7 +337,7 @@ func isPlaygroundRoute(path string) bool {
 		"/public/cep",
 		"/public/cnpj",
 		"/public/geo",
-		"/public/playground/status",
+		// ❌ NÃO incluir /public/playground/status - é rota pública sem autenticação
 	}
 
 	for _, route := range playgroundRoutes {

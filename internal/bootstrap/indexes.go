@@ -133,10 +133,9 @@ func CreateIndexes(ctx context.Context, db *mongo.Database, log zerolog.Logger) 
 		_, err := db.Collection(collName).Indexes().CreateOne(ctx, model)
 		if err != nil {
 			// Ignorar erro se índice já existe
-			if mongo.IsDuplicateKeyError(err) || 
-			   (err.Error() != "" && (
-				   contains(err.Error(), "already exists") || 
-				   contains(err.Error(), "IndexOptionsConflict"))) {
+			if mongo.IsDuplicateKeyError(err) ||
+				(err.Error() != "" && (contains(err.Error(), "already exists") ||
+					contains(err.Error(), "IndexOptionsConflict"))) {
 				log.Debug().Str("collection", collName).Str("index", description).Msg("Índice já existe, pulando...")
 				return nil
 			}
