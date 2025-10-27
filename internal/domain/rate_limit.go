@@ -13,8 +13,8 @@ type RateLimit struct {
 
 // RateLimitConfig configuração de limites
 type RateLimitConfig struct {
-	RequestsPerDay    int64 // Limite diário
-	RequestsPerMinute int64 // Limite por minuto
+	RequestsPerDay    int64 `bson:"requestsPerDay" json:"requestsPerDay"`       // Limite diário
+	RequestsPerMinute int64 `bson:"requestsPerMinute" json:"requestsPerMinute"` // Limite por minuto
 }
 
 // GetDefaultRateLimit retorna limites padrão (free tier)
