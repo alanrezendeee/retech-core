@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
-	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -46,13 +45,11 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 			return // Sem tenant_id, não loga
 		}
 
+		now := time.Now()
 		endpoint := c.Request.URL.Path
 
 		// Extrair nome da API do endpoint
 		apiName := extractAPIName(endpoint)
-
-		// ✅ Usar timezone de Brasília para data
-		nowBrasilia := utils.GetBrasiliaTime()
 
 		log := domain.APIUsageLog{
 			APIKey:       apiKeyStr,
@@ -64,9 +61,9 @@ func (ul *UsageLogger) Middleware() gin.HandlerFunc {
 			ResponseTime: responseTime,
 			IPAddress:    c.ClientIP(),
 			UserAgent:    c.Request.UserAgent(),
-			Timestamp:    time.Now(),                       // ✅ UTC para ordenação
-			Date:         nowBrasilia.Format("2006-01-02"), // ✅ Brasília para agrupamento
-			Hour:         nowBrasilia.Hour(),               // ✅ Brasília para hora local
+			Timestamp:    now,
+			Date:         now.Format("2006-01-02"),
+			Hour:         now.Hour(),
 		}
 
 		// Inserir em background (não bloquear response)

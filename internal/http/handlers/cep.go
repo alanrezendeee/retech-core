@@ -12,7 +12,6 @@ import (
 	"github.com/theretech/retech-core/internal/cache"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
-	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -356,8 +355,8 @@ func (h *CEPHandler) GetStats(c *gin.Context) {
 		"api_name": "cep",
 	})
 
-	// Consultas hoje (timezone Brasília)
-	today := utils.GetTodayBrasilia()
+	// Consultas hoje
+	today := time.Now().Format("2006-01-02")
 	today_count, _ := collection.CountDocuments(ctx, bson.M{
 		"api_name": "cep",
 		"date":     today,

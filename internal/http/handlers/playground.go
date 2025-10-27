@@ -34,10 +34,21 @@ func (h *PlaygroundHandler) GetStatus(c *gin.Context) {
 		return
 	}
 
-	// ✅ Usar valores EXATAMENTE como salvos (sem fallbacks)
+	// ⚠️ MIGRAÇÃO: Se playground não existir ou APIKey vazia, usar defaults
 	enabled := sysSettings.Playground.Enabled
 	apiKey := sysSettings.Playground.APIKey
 	allowedAPIs := sysSettings.Playground.AllowedAPIs
+
+	// Se API Key vazia, usar padrão e considerar habilitado
+	if apiKey == "" {
+		apiKey = "rtc_demo_playground_2024"
+		enabled = true // Assume habilitado se não configurado
+	}
+
+	// Se allowedAPIs vazio, usar padrão
+	if len(allowedAPIs) == 0 {
+		allowedAPIs = []string{"cep", "cnpj", "geo"}
+	}
 
 	// Verificar se playground está habilitado
 	if !enabled {
@@ -48,11 +59,11 @@ func (h *PlaygroundHandler) GetStatus(c *gin.Context) {
 		return
 	}
 
-	// Playground habilitado - retornar valores EXATOS (podem ser vazios)
+	// Playground habilitado
 	c.JSON(http.StatusOK, gin.H{
 		"enabled":     true,
 		"message":     "Playground disponível",
-		"apiKey":      apiKey,      // ✅ Pode ser vazio
-		"allowedApis": allowedAPIs, // ✅ Pode ser array vazio []
+		"apiKey":      apiKey,
+		"allowedApis": allowedAPIs,
 	})
 }

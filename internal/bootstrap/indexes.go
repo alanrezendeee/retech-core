@@ -46,7 +46,53 @@ func EnsureIndexes(db *mongo.Database) error {
 		Keys: bson.D{{Key: "resetAt", Value: 1}},
 		Options: options.Index().SetExpireAfterSeconds(0),
 	})
-	return err
+	if err != nil { return err }
+
+	// playground_rate_limits: índice composto para segurança
+	_, err = db.Collection("playground_rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "ipAddress", Value: 1},
+			{Key: "apiKey", Value: 1},
+			{Key: "date", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil { return err }
+
+	// playground_rate_limits: índice por IP para consultas rápidas
+	_, err = db.Collection("playground_rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "ipAddress", Value: 1},
+			{Key: "date", Value: 1},
+		},
+	})
+	if err != nil { return err }
+
+	// playground_rate_limits: TTL para limpeza automática
+	_, err = db.Collection("playground_rate_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "updatedAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(7 * 24 * 60 * 60), // 7 dias
+	})
+	if err != nil { return err }
+
+	// playground_global_limits: índice composto
+	_, err = db.Collection("playground_global_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "apiKey", Value: 1},
+			{Key: "date", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil { return err }
+
+	// playground_global_limits: TTL para limpeza automática
+	_, err = db.Collection("playground_global_limits").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "updatedAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(7 * 24 * 60 * 60), // 7 dias
+	})
+	if err != nil { return err }
+
+	return nil
 }
 
 // CreateIndexes cria todos os índices necessários

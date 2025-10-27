@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/storage"
-	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -42,12 +41,12 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 	// Contar usuários
 	totalUsers, _ := h.db.DB.Collection("users").CountDocuments(ctx, bson.M{})
 
-	// Contar requests hoje (timezone Brasília)
-	today := utils.GetTodayBrasilia()
+	// Contar requests hoje
+	today := time.Now().Format("2006-01-02")
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"date": today})
 
-	// Contar requests mês (timezone Brasília)
-	startOfMonth := utils.GetStartOfMonthBrasilia()
+	// Contar requests mês
+	startOfMonth := time.Now().Format("2006-01")
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"date": bson.M{"$regex": "^" + startOfMonth},
 	})
@@ -104,7 +103,7 @@ func (h *AdminHandler) ListAllAPIKeys(c *gin.Context) {
 func (h *AdminHandler) GetUsage(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Uso por dia (últimos 7 dias) - ordem DESC (mais recente primeiro)
+	// Uso por dia (últimos 7 dias)
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"timestamp": bson.M{"$gte": time.Now().AddDate(0, 0, -7)},
@@ -113,7 +112,7 @@ func (h *AdminHandler) GetUsage(c *gin.Context) {
 			"_id":   "$date",
 			"count": bson.M{"$sum": 1},
 		}},
-		{"$sort": bson.M{"_id": -1}}, // ✅ DESC (mais recente primeiro)
+		{"$sort": bson.M{"_id": 1}},
 	}
 
 	cursor, err := h.db.DB.Collection("api_usage_logs").Aggregate(ctx, pipeline)
@@ -190,12 +189,12 @@ func (h *AdminHandler) GetAnalytics(c *gin.Context) {
 	// Total de requests
 	totalRequests, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{})
 
-	// Requests hoje (timezone Brasília GMT-3)
-	today := utils.GetTodayBrasilia()
+	// Requests hoje
+	today := time.Now().Format("2006-01-02")
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"date": today})
 
-	// Requests este mês (timezone Brasília)
-	startOfMonth := utils.GetStartOfMonthBrasilia()
+	// Requests este mês
+	startOfMonth := time.Now().Format("2006-01")
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"date": bson.M{"$regex": "^" + startOfMonth},
 	})

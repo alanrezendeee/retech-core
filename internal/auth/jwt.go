@@ -124,13 +124,3 @@ func (s *JWTService) GetAccessTTL() time.Duration {
 func (s *JWTService) GetRefreshTTL() time.Duration {
 	return s.refreshTTL
 }
-
-// SetAccessTTL atualiza o TTL do access token dinamicamente
-func (s *JWTService) SetAccessTTL(ttl time.Duration) {
-	s.accessTTL = ttl
-}
-
-// SetRefreshTTL atualiza o TTL do refresh token dinamicamente
-func (s *JWTService) SetRefreshTTL(ttl time.Duration) {
-	s.refreshTTL = ttl
-}

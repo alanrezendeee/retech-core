@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
-	"github.com/theretech/retech-core/internal/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -64,9 +63,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		ctx := context.Background()
 		now := time.Now()
-		// ✅ Usar timezone Brasília para data do dia
-		nowBrasilia := utils.GetBrasiliaTime()
-		today := nowBrasilia.Format("2006-01-02")
+		today := now.Format("2006-01-02")
 
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// VERIFICAR LIMITE DIÁRIO (POR TENANT, NÃO POR API KEY!)
@@ -112,7 +109,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		// VERIFICAR LIMITE POR MINUTO (POR TENANT, NÃO POR API KEY!)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		collMinute := rl.db.Collection("rate_limits_minute")
-		currentMinute := nowBrasilia.Format("2006-01-02 15:04") // ✅ YYYY-MM-DD HH:MM (Brasília)
+		currentMinute := now.Format("2006-01-02 15:04") // YYYY-MM-DD HH:MM
 
 		var rateLimitMinute domain.RateLimit
 		err = collMinute.FindOne(ctx, bson.M{

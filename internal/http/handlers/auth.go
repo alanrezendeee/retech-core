@@ -90,22 +90,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// ✅ Buscar TTLs dinâmicos do settings
-	ctx := c.Request.Context()
-	sysSettings, err := h.settings.Get(ctx)
-	if err != nil {
-		// Fallback para defaults se settings não encontrado
-		sysSettings = domain.GetDefaultSettings()
-	}
-
-	// ✅ Atualizar TTLs do JWT Service dinamicamente
-	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
-	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)
-
-	fmt.Printf("🔑 [Login] JWT TTLs: Access=%ds, Refresh=%ds\n",
-		sysSettings.JWT.AccessTokenTTL, sysSettings.JWT.RefreshTokenTTL)
-
-	// Gerar tokens com TTLs dinâmicos
+	// Gerar tokens
 	accessToken, err := h.jwt.GenerateAccessToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -268,17 +253,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Por enquanto, tenant pode criar depois no painel
 	var generatedKey string
 
-	// ✅ Buscar TTLs dinâmicos do settings
-	sysSettings, err := h.settings.Get(ctx)
-	if err != nil {
-		sysSettings = domain.GetDefaultSettings()
-	}
-
-	// ✅ Atualizar TTLs do JWT Service
-	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
-	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)
-
-	// Gerar tokens JWT com TTLs dinâmicos
+	// Gerar tokens JWT
 	accessToken, err := h.jwt.GenerateAccessToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -401,18 +376,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// ✅ Buscar TTLs dinâmicos do settings (para refresh também)
-	ctx := c.Request.Context()
-	sysSettings, err := h.settings.Get(ctx)
-	if err != nil {
-		sysSettings = domain.GetDefaultSettings()
-	}
-
-	// ✅ Atualizar TTLs
-	h.jwt.SetAccessTTL(time.Duration(sysSettings.JWT.AccessTokenTTL) * time.Second)
-	h.jwt.SetRefreshTTL(time.Duration(sysSettings.JWT.RefreshTokenTTL) * time.Second)
-
-	// Gerar novo access token com TTL dinâmico
+	// Gerar novo access token
 	newAccessToken, err := h.jwt.GenerateAccessToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

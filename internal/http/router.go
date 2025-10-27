@@ -28,49 +28,61 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.New()
 
-	// 🌐 CORS DINÂMICO (segue EXATAMENTE admin/settings)
+	// 🌐 CORS DINÂMICO (lê de admin/settings)
 	r.Use(func(c *gin.Context) {
 		ctx := c.Request.Context()
 		origin := c.Request.Header.Get("Origin")
-		method := c.Request.Method
 		path := c.Request.URL.Path
 
-		// 🔍 DEBUG: Log de todas as requests
-		fmt.Printf("[CORS] %s %s (Origin: %s)\n", method, path, origin)
+		// 📋 Rotas públicas SEMPRE têm CORS (independente do settings)
+		publicRoutes := []string{
+			"/health",
+			"/version",
+			"/docs",
+			"/openapi.yaml",
+			"/public/",
+		}
 
-		// 🔒 Buscar settings (sem fallbacks ou exceções)
+		isPublicRoute := false
+		for _, route := range publicRoutes {
+			if len(path) >= len(route) && path[:len(route)] == route {
+				isPublicRoute = true
+				break
+			}
+		}
+
+		// Se é rota pública, sempre permite CORS
+		if isPublicRoute {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Max-Age", "86400")
+
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(204)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		// 🔒 Rotas protegidas: verificar settings
 		sysSettings, err := settings.Get(ctx)
+
+		// Se erro ao buscar settings, não adiciona CORS (seguro)
 		if err != nil {
-			fmt.Printf("[CORS] ❌ Erro ao buscar settings: %v - SEM headers CORS\n", err)
-
-			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
-			// Browser bloqueará por falta dos headers
-			if method == "OPTIONS" {
-				c.AbortWithStatus(204)
-				return
-			}
 			c.Next()
 			return
 		}
 
-		fmt.Printf("[CORS] Settings: CORS.Enabled=%v, AllowedOrigins=%v\n",
-			sysSettings.CORS.Enabled, sysSettings.CORS.AllowedOrigins)
-
-		// ❌ Se CORS desabilitado, não adicionar headers (browser bloqueará)
+		// Se CORS desabilitado, não adiciona headers para rotas protegidas
 		if !sysSettings.CORS.Enabled {
-			fmt.Printf("[CORS] ❌ CORS desabilitado - não adicionando headers\n")
-
-			// ✅ BEST PRACTICE: Responder OPTIONS com 204, mas SEM headers CORS
-			if method == "OPTIONS" {
-				c.AbortWithStatus(204)
-				return
-			}
-			// Para requests normais, processar normalmente mas sem headers CORS
 			c.Next()
 			return
 		}
 
-		// ✅ CORS habilitado: verificar se origin está na lista
+		// Verificar se origin está na lista permitida
 		allowed := false
 		for _, allowedOrigin := range sysSettings.CORS.AllowedOrigins {
 			if origin == allowedOrigin {
@@ -79,29 +91,15 @@ func NewRouter(
 			}
 		}
 
-		if !allowed && origin != "" {
-			fmt.Printf("[CORS] ❌ Origin '%s' não está na lista permitida: %v\n", origin, sysSettings.CORS.AllowedOrigins)
-
-			// ✅ BEST PRACTICE: Não bloquear, apenas não adicionar headers CORS
-			if method == "OPTIONS" {
-				c.AbortWithStatus(204)
-				return
-			}
-			// Para requests normais, processar normalmente mas sem headers CORS
-			c.Next()
-			return
+		if allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Max-Age", "86400")
 		}
 
-		// ✅ Origin permitido: adicionar headers CORS
-		fmt.Printf("[CORS] ✅ Origin permitido - adicionando headers\n")
-		c.Header("Access-Control-Allow-Origin", origin)
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-API-Key, Cache-Control, Pragma, Expires")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Max-Age", "86400")
-
-		// Responder preflight requests
-		if method == "OPTIONS" {
+		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
@@ -118,6 +116,7 @@ func NewRouter(
 
 	// Middlewares globais
 	rateLimiter := middleware.NewRateLimiter(m.DB, tenants, settings)
+	playgroundRateLimiter := middleware.NewPlaygroundRateLimiter(m.DB, settings)
 	usageLogger := middleware.NewUsageLogger(m.DB)
 	maintenanceMiddleware := middleware.NewMaintenanceMiddleware(settings)
 
@@ -140,15 +139,16 @@ func NewRouter(
 	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
 	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
 
-	// 🔒 ROTAS PÚBLICAS DESABILITADAS (usar API Key Demo no playground)
-	// Motivo: Prevenir abuso. Playground usa API Key "rtc_demo_playground" com rate limit agressivo.
-	// publicGroup := r.Group("/public")
-	// {
-	// 	publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
-	// 	publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
-	// 	publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
-	// 	publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
-	// }
+	// 🔒 ROTAS PÚBLICAS COM SEGURANÇA MULTI-CAMADA
+	// Rate limiting por IP + API Key Demo + Fingerprinting + Throttling
+	publicGroup := r.Group("/public")
+	publicGroup.Use(playgroundRateLimiter.Middleware()) // ✅ Middleware de segurança específico
+	{
+		publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
+		publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
+		publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
+		publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
+	}
 
 	// Auth endpoints (públicos)
 	authHandler := handlers.NewAuthHandler(users, tenants, apikeys, activityLogs, settings, jwtService)
