@@ -34,12 +34,12 @@ func NewCEPHandler(db *storage.Mongo, redis interface{}, settings *storage.Setti
 // getTTL retorna o TTL configurado no admin/settings (ou 7 dias como padrão)
 func (h *CEPHandler) getTTL(ctx *gin.Context) time.Duration {
 	sysSettings, err := h.settings.Get(ctx.Request.Context())
-	if err != nil || !sysSettings.Cache.Enabled {
+	if err != nil || !sysSettings.Cache.CEP.Enabled {
 		return 7 * 24 * time.Hour // Padrão: 7 dias
 	}
 
 	// Validar intervalo (1-365 dias)
-	days := sysSettings.Cache.CEPTTLDays
+	days := sysSettings.Cache.CEP.TTLDays
 	if days < 1 {
 		days = 1
 	}
@@ -105,7 +105,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	}
 
 	// ⚡ CAMADA 1: REDIS (ultra-rápido, <1ms)
-	if h.redis != nil && settings.Cache.Enabled {
+	if h.redis != nil && settings.Cache.CEP.Enabled {
 		redisClient, ok := h.redis.(*cache.RedisClient)
 		if ok {
 			redisKey := fmt.Sprintf("cep:%s", cep)
@@ -125,7 +125,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		if h.redis == nil {
 			fmt.Printf("⚠️ [CEP:%s] Redis não disponível (graceful degradation)\n", cep)
 		}
-		if !settings.Cache.Enabled {
+		if !settings.Cache.CEP.Enabled {
 			fmt.Printf("⚠️ [CEP:%s] Cache desabilitado nas configurações\n", cep)
 		}
 	}
@@ -133,12 +133,12 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 	// 🗄️ CAMADA 2: MONGODB (backup, ~10ms)
 	collection := h.db.DB.Collection("cep_cache")
 
-	if settings.Cache.Enabled {
+	if settings.Cache.CEP.Enabled {
 		var cached CEPResponse
 		err := collection.FindOne(ctx, bson.M{"cep": cep}).Decode(&cached)
 		if err == nil {
 			// Verificar se cache ainda é válido (usar TTL dinâmico)
-			cacheTTL := time.Duration(settings.Cache.CEPTTLDays) * 24 * time.Hour
+			cacheTTL := time.Duration(settings.Cache.CEP.TTLDays) * 24 * time.Hour
 			cachedTime, _ := time.Parse(time.RFC3339, cached.CachedAt)
 			if time.Since(cachedTime) < cacheTTL {
 				fmt.Printf("✅ [CEP:%s] CACHE HIT → MongoDB L2 (válido, promovendo para Redis...)\n", cep)
@@ -180,7 +180,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
 		// Salvar em AMBAS camadas de cache (se habilitado)
-		if settings.Cache.Enabled {
+		if settings.Cache.CEP.Enabled {
 			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
@@ -228,7 +228,7 @@ func (h *CEPHandler) GetCEP(c *gin.Context) {
 		response.CEP = strings.ReplaceAll(response.CEP, ".", "")
 
 		// Salvar em AMBAS camadas de cache (se habilitado)
-		if settings.Cache.Enabled {
+		if settings.Cache.CEP.Enabled {
 			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
@@ -414,9 +414,9 @@ func (h *CEPHandler) GetCacheStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"totalCached":  totalCached,
 		"recentCached": recentCached, // últimas 24h
-		"cacheEnabled": settings.Cache.Enabled,
-		"cacheTTLDays": settings.Cache.CEPTTLDays,
-		"autoCleanup":  settings.Cache.AutoCleanup,
+		"cacheEnabled": settings.Cache.CEP.Enabled,
+		"cacheTTLDays": settings.Cache.CEP.TTLDays,
+		"autoCleanup":  settings.Cache.CEP.AutoCleanup,
 	})
 }
 

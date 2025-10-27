@@ -58,7 +58,7 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	}
 
 	// ⚡ CAMADA 1: REDIS (ultra-rápido, <1ms)
-	if h.redis != nil && settings.Cache.Enabled {
+	if h.redis != nil && settings.Cache.CNPJ.Enabled {
 		redisClient, ok := h.redis.(*cache.RedisClient)
 		if ok {
 			redisKey := fmt.Sprintf("cnpj:%s", cnpj)
@@ -77,13 +77,13 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	// 🗄️ CAMADA 2: MONGODB (backup, ~10ms)
 	collection := h.db.DB.Collection("cnpj_cache")
 
-	if settings.Cache.Enabled {
+	if settings.Cache.CNPJ.Enabled {
 		var cached domain.CNPJ
 		err := collection.FindOne(ctx, bson.M{"cnpj": cnpj}).Decode(&cached)
 		if err == nil {
 			// Verificar se cache ainda é válido (usar TTL configurável)
-			cacheTTL := time.Duration(settings.Cache.CNPJTTLDays) * 24 * time.Hour
-			
+			cacheTTL := time.Duration(settings.Cache.CNPJ.TTLDays) * 24 * time.Hour
+
 			if time.Since(cached.CachedAt) < cacheTTL {
 				// ✅ Promover para Redis (para próximas requests)
 				if h.redis != nil {
@@ -104,12 +104,12 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "brasilapi"
 		cnpjData.CachedAt = time.Now().UTC()
-		
+
 		// ✅ NORMALIZAR CNPJ para salvar sem formatação
 		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
 		// Salvar em AMBAS camadas de cache (se habilitado)
-		if settings.Cache.Enabled {
+		if settings.Cache.CNPJ.Enabled {
 			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
@@ -119,7 +119,7 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 🗄️ Salvar no MongoDB (L2 - cold cache, 30 dias)
 			_, err := collection.UpdateOne(
 				ctx,
@@ -141,12 +141,12 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	if err == nil && cnpjData.CNPJ != "" {
 		cnpjData.Source = "receitaws"
 		cnpjData.CachedAt = time.Now().UTC()
-		
+
 		// ✅ NORMALIZAR CNPJ para salvar sem formatação
 		cnpjData.CNPJ = domain.NormalizeCNPJ(cnpjData.CNPJ)
 
 		// Salvar em AMBAS camadas de cache (se habilitado)
-		if settings.Cache.Enabled {
+		if settings.Cache.CNPJ.Enabled {
 			// ⚡ Salvar no Redis (L1 - hot cache, 24h)
 			if h.redis != nil {
 				if redisClient, ok := h.redis.(*cache.RedisClient); ok {
@@ -156,7 +156,7 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// 🗄️ Salvar no MongoDB (L2 - cold cache, 30 dias)
 			_, err := collection.UpdateOne(
 				ctx,
@@ -237,8 +237,8 @@ func (h *CNPJHandler) fetchBrasilAPI(ctx context.Context, cnpj string) (*domain.
 			Descricao string `json:"descricao"`
 		} `json:"cnaes_secundarios"`
 		QSA []struct {
-			Nome                 string `json:"nome_socio"`
-			QualificacaoSocio    string `json:"qualificacao_socio"`
+			Nome              string `json:"nome_socio"`
+			QualificacaoSocio string `json:"qualificacao_socio"`
 		} `json:"qsa"`
 	}
 
@@ -327,25 +327,25 @@ func (h *CNPJHandler) fetchReceitaWS(ctx context.Context, cnpj string) (*domain.
 
 	// ReceitaWS retorna estrutura diferente
 	var receitaResp struct {
-		Status         string  `json:"status"`
-		CNPJ           string  `json:"cnpj"`
-		Nome           string  `json:"nome"`
-		Fantasia       string  `json:"fantasia"`
-		Situacao       string  `json:"situacao"`
-		DataSituacao   string  `json:"data_situacao"`
-		Abertura       string  `json:"abertura"`
-		Porte          string  `json:"porte"`
-		Natureza       string  `json:"natureza_juridica"`
-		CapitalSocial  string  `json:"capital_social"`
-		Logradouro     string  `json:"logradouro"`
-		Numero         string  `json:"numero"`
-		Complemento    string  `json:"complemento"`
-		Bairro         string  `json:"bairro"`
-		CEP            string  `json:"cep"`
-		Municipio      string  `json:"municipio"`
-		UF             string  `json:"uf"`
-		Telefone       string  `json:"telefone"`
-		Email          string  `json:"email"`
+		Status             string `json:"status"`
+		CNPJ               string `json:"cnpj"`
+		Nome               string `json:"nome"`
+		Fantasia           string `json:"fantasia"`
+		Situacao           string `json:"situacao"`
+		DataSituacao       string `json:"data_situacao"`
+		Abertura           string `json:"abertura"`
+		Porte              string `json:"porte"`
+		Natureza           string `json:"natureza_juridica"`
+		CapitalSocial      string `json:"capital_social"`
+		Logradouro         string `json:"logradouro"`
+		Numero             string `json:"numero"`
+		Complemento        string `json:"complemento"`
+		Bairro             string `json:"bairro"`
+		CEP                string `json:"cep"`
+		Municipio          string `json:"municipio"`
+		UF                 string `json:"uf"`
+		Telefone           string `json:"telefone"`
+		Email              string `json:"email"`
 		AtividadePrincipal []struct {
 			Code string `json:"code"`
 			Text string `json:"text"`
@@ -449,11 +449,11 @@ func (h *CNPJHandler) GetCacheStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"totalCached":   totalCached,
-		"recentCached":  recentCached, // últimas 24h
-		"cacheEnabled":  settings.Cache.Enabled,
-		"cacheTTLDays":  settings.Cache.CNPJTTLDays, // ✅ TTL configurável
-		"autoCleanup":   settings.Cache.AutoCleanup,
+		"totalCached":  totalCached,
+		"recentCached": recentCached, // últimas 24h
+		"cacheEnabled": settings.Cache.CNPJ.Enabled,
+		"cacheTTLDays": settings.Cache.CNPJ.TTLDays, // ✅ TTL configurável
+		"autoCleanup":  settings.Cache.CNPJ.AutoCleanup,
 	})
 }
 
@@ -476,4 +476,3 @@ func (h *CNPJHandler) ClearCache(c *gin.Context) {
 		"deletedCount": result.DeletedCount,
 	})
 }
-

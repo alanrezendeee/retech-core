@@ -83,6 +83,9 @@ func (h *APIKeysHandler) Create(c *gin.Context) {
 	keyId := uuid.NewString()
 	keySecret := randomBase32(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
+	}
 	hash := hashKey(secret, keyId, keySecret)
 
 	k := &domain.APIKey{
@@ -146,6 +149,9 @@ func (h *APIKeysHandler) rotateExistingKey(c *gin.Context, in rotateKeyDTO) {
 	keyId := uuid.NewString()
 	keySecret := randomBase32(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
+	}
 	hash := hashKey(secret, keyId, keySecret)
 
 	// Calcular nova data de expiração (mesmo período da chave original)
@@ -239,6 +245,9 @@ func (h *APIKeysHandler) Rotate(c *gin.Context) {
 	keyId := uuid.NewString()
 	keySecret := randomBase32(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
+	}
 	hash := hashKey(secret, keyId, keySecret)
 
 	// Calcular nova data de expiração (mesmo período da chave original)

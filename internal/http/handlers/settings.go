@@ -39,6 +39,34 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// 🔄 MIGRAÇÃO AUTOMÁTICA: Se detectar estrutura antiga, migrar para nova
+	// Verifica se CEP e CNPJ estão vazios (estrutura antiga)
+	if settings.Cache.CEP.TTLDays == 0 && settings.Cache.CNPJ.TTLDays == 0 {
+		fmt.Println("⚠️ [MIGRAÇÃO] Detectada estrutura antiga de cache, migrando...")
+
+		// Migrar valores antigos para nova estrutura
+		settings.Cache.CEP.Enabled = settings.Cache.Enabled
+		settings.Cache.CEP.TTLDays = settings.Cache.CEPTTLDays
+		settings.Cache.CEP.AutoCleanup = settings.Cache.AutoCleanup
+
+		settings.Cache.CNPJ.Enabled = settings.Cache.Enabled
+		settings.Cache.CNPJ.TTLDays = settings.Cache.CNPJTTLDays
+		settings.Cache.CNPJ.AutoCleanup = settings.Cache.AutoCleanup
+
+		// Aplicar defaults se valores antigos também estão zerados
+		if settings.Cache.CEP.TTLDays == 0 {
+			settings.Cache.CEP.TTLDays = 7
+		}
+		if settings.Cache.CNPJ.TTLDays == 0 {
+			settings.Cache.CNPJ.TTLDays = 30
+		}
+
+		fmt.Printf("✅ [MIGRAÇÃO] CEP: enabled=%v, ttl=%d, cleanup=%v\n",
+			settings.Cache.CEP.Enabled, settings.Cache.CEP.TTLDays, settings.Cache.CEP.AutoCleanup)
+		fmt.Printf("✅ [MIGRAÇÃO] CNPJ: enabled=%v, ttl=%d, cleanup=%v\n",
+			settings.Cache.CNPJ.Enabled, settings.Cache.CNPJ.TTLDays, settings.Cache.CNPJ.AutoCleanup)
+	}
+
 	c.JSON(http.StatusOK, settings)
 }
 
@@ -62,10 +90,11 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 
 	// Log dos valores recebidos
 	fmt.Printf("Settings recebidas: %+v\n", settings)
-	fmt.Printf("📦 Cache config recebido: enabled=%v, cepTTLDays=%d, autoCleanup=%v\n", 
-		settings.Cache.Enabled, settings.Cache.CEPTTLDays, settings.Cache.AutoCleanup)
+	fmt.Printf("📦 Cache config recebido: CEP(enabled=%v, ttl=%d, cleanup=%v), CNPJ(enabled=%v, ttl=%d, cleanup=%v)\n",
+		settings.Cache.CEP.Enabled, settings.Cache.CEP.TTLDays, settings.Cache.CEP.AutoCleanup,
+		settings.Cache.CNPJ.Enabled, settings.Cache.CNPJ.TTLDays, settings.Cache.CNPJ.AutoCleanup)
 	fmt.Printf("🎮 Playground config recebido: enabled=%v, apiKey=%s, reqPerDay=%d, reqPerMin=%d, allowedAPIs=%v\n",
-		settings.Playground.Enabled, settings.Playground.APIKey, 
+		settings.Playground.Enabled, settings.Playground.APIKey,
 		settings.Playground.RateLimit.RequestsPerDay, settings.Playground.RateLimit.RequestsPerMinute,
 		settings.Playground.AllowedAPIs)
 

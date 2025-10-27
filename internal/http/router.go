@@ -144,35 +144,35 @@ func NewRouter(
 	publicGroup := r.Group("/public")
 	{
 		// CEP (requer scope 'cep')
-		publicGroup.GET("/cep/:codigo", 
+		publicGroup.GET("/cep/:codigo",
 			auth.AuthAPIKey(apikeys),
-			auth.RequireScope(apikeys, "cep"),  // ✅ Valida scope!
+			auth.RequireScope(apikeys, "cep"), // ✅ Valida scope!
 			playgroundRateLimiter.Middleware(),
 			usageLogger.Middleware(),
 			cepHandler.GetCEP,
 		)
-		
+
 		// CNPJ (requer scope 'cnpj')
 		publicGroup.GET("/cnpj/:numero",
 			auth.AuthAPIKey(apikeys),
-			auth.RequireScope(apikeys, "cnpj"),  // ✅ Valida scope!
+			auth.RequireScope(apikeys, "cnpj"), // ✅ Valida scope!
 			playgroundRateLimiter.Middleware(),
 			usageLogger.Middleware(),
 			cnpjHandler.GetCNPJ,
 		)
-		
+
 		// GEO (requer scope 'geo')
 		publicGroup.GET("/geo/ufs",
 			auth.AuthAPIKey(apikeys),
-			auth.RequireScope(apikeys, "geo"),  // ✅ Valida scope!
+			auth.RequireScope(apikeys, "geo"), // ✅ Valida scope!
 			playgroundRateLimiter.Middleware(),
 			usageLogger.Middleware(),
 			geoHandler.ListUFs,
 		)
-		
+
 		publicGroup.GET("/geo/ufs/:sigla",
 			auth.AuthAPIKey(apikeys),
-			auth.RequireScope(apikeys, "geo"),  // ✅ Valida scope!
+			auth.RequireScope(apikeys, "geo"), // ✅ Valida scope!
 			playgroundRateLimiter.Middleware(),
 			usageLogger.Middleware(),
 			geoHandler.GetUF,
@@ -272,6 +272,13 @@ func NewRouter(
 		adminGroup.DELETE("/cache/cep", cepHandler.ClearCache)
 		adminGroup.GET("/cache/cnpj/stats", cnpjHandler.GetCacheStats)
 		adminGroup.DELETE("/cache/cnpj", cnpjHandler.ClearCache)
+
+		// Redis Cache Management (admin only)
+		redisStatsHandler := handlers.NewRedisStatsHandler(redisClient)
+		adminGroup.GET("/cache/redis/stats", redisStatsHandler.GetStats)
+		adminGroup.DELETE("/cache/redis", redisStatsHandler.ClearAll)
+		adminGroup.DELETE("/cache/redis/cep", redisStatsHandler.ClearCEP)
+		adminGroup.DELETE("/cache/redis/cnpj", redisStatsHandler.ClearCNPJ)
 
 		// Activity Logs (admin only)
 		activityHandler := handlers.NewActivityHandler(activityLogs)

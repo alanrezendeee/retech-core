@@ -60,13 +60,25 @@ type ContactConfig struct {
 	Phone    string `bson:"phone" json:"phone"`
 }
 
-// CacheConfig define a configuração de cache
+// CacheConfig define a configuração de cache (DEPRECATED: usar CEP e CNPJ individuais)
 type CacheConfig struct {
-	Enabled      bool `bson:"enabled" json:"enabled"`             // Habilitar/Desabilitar cache globalmente
-	CEPTTLDays   int  `bson:"cepTtlDays" json:"cepTtlDays"`       // TTL do cache de CEP em dias (1-365)
-	CNPJTTLDays  int  `bson:"cnpjTtlDays" json:"cnpjTtlDays"`     // TTL do cache de CNPJ em dias (1-365)
-	MaxSizeMB    int  `bson:"maxSizeMb" json:"maxSizeMb"`         // Tamanho máximo do cache em MB (futuro)
-	AutoCleanup  bool `bson:"autoCleanup" json:"autoCleanup"`     // Limpeza automática via TTL index
+	// ⚠️ DEPRECATED: Mantido para retrocompatibilidade
+	Enabled      bool `bson:"enabled,omitempty" json:"enabled,omitempty"`
+	CEPTTLDays   int  `bson:"cepTtlDays,omitempty" json:"cepTtlDays,omitempty"`
+	CNPJTTLDays  int  `bson:"cnpjTtlDays,omitempty" json:"cnpjTtlDays,omitempty"`
+	MaxSizeMB    int  `bson:"maxSizeMb,omitempty" json:"maxSizeMb,omitempty"`
+	AutoCleanup  bool `bson:"autoCleanup,omitempty" json:"autoCleanup,omitempty"`
+	
+	// ✅ NOVO: Controles independentes por serviço
+	CEP  ServiceCacheConfig `bson:"cep" json:"cep"`
+	CNPJ ServiceCacheConfig `bson:"cnpj" json:"cnpj"`
+}
+
+// ServiceCacheConfig define configuração de cache para um serviço específico
+type ServiceCacheConfig struct {
+	Enabled     bool `bson:"enabled" json:"enabled"`         // Habilitar cache para este serviço
+	TTLDays     int  `bson:"ttlDays" json:"ttlDays"`         // TTL em dias (1-365)
+	AutoCleanup bool `bson:"autoCleanup" json:"autoCleanup"` // Limpeza automática via TTL index
 }
 
 // PlaygroundConfig define a configuração do playground público
@@ -118,11 +130,17 @@ func GetDefaultSettings() *SystemSettings {
 			Phone:    "+55 48 99961-6679",
 		},
 		Cache: CacheConfig{
-			Enabled:      true, // ✅ Cache habilitado por padrão
-			CEPTTLDays:   7,    // 7 dias (padrão razoável)
-			CNPJTTLDays:  30,   // 30 dias (empresas não mudam frequentemente)
-			MaxSizeMB:    100,  // 100MB (futuro: monitoramento)
-			AutoCleanup:  true, // MongoDB TTL index ativo
+			// ✅ Controles independentes por serviço
+			CEP: ServiceCacheConfig{
+				Enabled:     true, // Cache CEP habilitado
+				TTLDays:     7,    // 7 dias
+				AutoCleanup: true, // Limpeza automática ativa
+			},
+			CNPJ: ServiceCacheConfig{
+				Enabled:     true, // Cache CNPJ habilitado
+				TTLDays:     30,   // 30 dias (empresas não mudam frequentemente)
+				AutoCleanup: true, // Limpeza automática ativa
+			},
 		},
 		Playground: PlaygroundConfig{
 			Enabled: true, // ✅ Playground habilitado por padrão

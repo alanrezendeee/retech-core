@@ -64,7 +64,7 @@ func (h *PlaygroundAPIKeyHandler) GenerateAPIKey(c *gin.Context) {
 	// 4. Gerar hash da API Key (HMAC-SHA256)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
 	if secret == "" {
-		secret = "default-secret-key" // Fallback (não usar em produção)
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
 	}
 
 	mac := hmac.New(sha256.New, []byte(secret))
@@ -174,7 +174,7 @@ func (h *PlaygroundAPIKeyHandler) RotateAPIKey(c *gin.Context) {
 	// 5. Gerar hash da API Key (HMAC-SHA256)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
 	if secret == "" {
-		secret = "default-secret-key" // Fallback
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
 	}
 
 	mac := hmac.New(sha256.New, []byte(secret))

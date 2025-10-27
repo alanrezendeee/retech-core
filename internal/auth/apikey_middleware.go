@@ -21,6 +21,9 @@ func hashKey(secret, keyId, keySecret string) string {
 // Espera header: X-API-Key: keyId.keySecret
 func AuthAPIKey(repo *storage.APIKeysRepo) gin.HandlerFunc {
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado! Configure esta variável de ambiente obrigatória.")
+	}
 	return func(c *gin.Context) {
 		raw := c.GetHeader("X-API-Key")
 		parts := strings.Split(raw, ".")

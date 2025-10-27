@@ -20,7 +20,7 @@ type RedisClient struct {
 // Aceita tanto URL completa (redis://...) quanto addr simples (host:port)
 func NewRedisClient(urlOrAddr, password string, db int, log zerolog.Logger) (*RedisClient, error) {
 	var client *redis.Client
-	
+
 	// Se começa com "redis://", parsear como URL
 	if len(urlOrAddr) > 8 && urlOrAddr[:8] == "redis://" {
 		opt, err := redis.ParseURL(urlOrAddr)
@@ -28,14 +28,14 @@ func NewRedisClient(urlOrAddr, password string, db int, log zerolog.Logger) (*Re
 			log.Error().Err(err).Str("url", urlOrAddr).Msg("❌ Erro ao parsear REDIS_URL")
 			return nil, fmt.Errorf("erro ao parsear REDIS_URL: %w", err)
 		}
-		
+
 		// Configurar pool e timeouts
 		opt.PoolSize = 50
 		opt.MinIdleConns = 10
 		opt.DialTimeout = 5 * time.Second
 		opt.ReadTimeout = 3 * time.Second
 		opt.WriteTimeout = 3 * time.Second
-		
+
 		client = redis.NewClient(opt)
 	} else {
 		// Formato antigo: addr + password separados
@@ -77,6 +77,26 @@ func (r *RedisClient) Get(ctx context.Context, key string) (string, error) {
 	return val, err
 }
 
+// Keys retorna todas as chaves que correspondem ao padrão
+func (r *RedisClient) Keys(ctx context.Context, pattern string) ([]string, error) {
+	return r.client.Keys(ctx, pattern).Result()
+}
+
+// Del deleta uma ou mais chaves
+func (r *RedisClient) Del(ctx context.Context, keys ...string) error {
+	return r.client.Del(ctx, keys...).Err()
+}
+
+// FlushDB limpa todo o banco de dados atual
+func (r *RedisClient) FlushDB(ctx context.Context) error {
+	return r.client.FlushDB(ctx).Err()
+}
+
+// Info retorna informações do servidor Redis
+func (r *RedisClient) Info(ctx context.Context, section string) (string, error) {
+	return r.client.Info(ctx, section).Result()
+}
+
 // Set salva um valor no Redis com TTL
 func (r *RedisClient) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	// Serializar para JSON
@@ -101,20 +121,20 @@ func (r *RedisClient) Delete(ctx context.Context, keys ...string) error {
 // FlushPattern remove todas as chaves que começam com pattern
 func (r *RedisClient) FlushPattern(ctx context.Context, pattern string) error {
 	iter := r.client.Scan(ctx, 0, pattern, 0).Iterator()
-	
+
 	keys := []string{}
 	for iter.Next(ctx) {
 		keys = append(keys, iter.Val())
 	}
-	
+
 	if err := iter.Err(); err != nil {
 		return err
 	}
-	
+
 	if len(keys) > 0 {
 		return r.client.Del(ctx, keys...).Err()
 	}
-	
+
 	return nil
 }
 
@@ -141,4 +161,3 @@ func (r *RedisClient) Close() error {
 func (r *RedisClient) Ping(ctx context.Context) error {
 	return r.client.Ping(ctx).Err()
 }
-

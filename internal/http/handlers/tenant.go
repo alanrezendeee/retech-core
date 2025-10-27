@@ -115,6 +115,12 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 	keyId := uuid.NewString()
 	keySecret := randomBase32Tenant(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
+	}
+	if secret == "" {
+		secret = "default-secret-key" // ⚠️ Fallback
+	}
 	hash := hashKeyTenant(secret, keyId, keySecret)
 
 	// Validade padrão: 90 dias
@@ -222,6 +228,12 @@ func (h *TenantHandler) RotateAPIKey(c *gin.Context) {
 	keyId := uuid.NewString()
 	keySecret := randomBase32Tenant(32)
 	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		panic("🔒 ERRO DE SEGURANÇA: APIKEY_HASH_SECRET não configurado!")
+	}
+	if secret == "" {
+		secret = "default-secret-key" // ⚠️ Fallback
+	}
 	hash := hashKeyTenant(secret, keyId, keySecret)
 
 	// Calcular nova data de expiração (mesmo período da chave original)
