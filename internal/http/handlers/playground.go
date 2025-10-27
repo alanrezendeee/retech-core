@@ -21,7 +21,7 @@ func NewPlaygroundHandler(settings *storage.SettingsRepo) *PlaygroundHandler {
 // GET /public/playground/status
 func (h *PlaygroundHandler) GetStatus(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	// Buscar configurações
 	sysSettings, err := h.settings.Get(ctx)
 	if err != nil {
@@ -56,4 +56,3 @@ func (h *PlaygroundHandler) GetStatus(c *gin.Context) {
 		"allowedApis": allowedAPIs, // ✅ Pode ser array vazio []
 	})
 }
-
