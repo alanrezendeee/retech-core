@@ -140,14 +140,43 @@ func NewRouter(
 	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
 
 	// 🔒 ROTAS PÚBLICAS COM SEGURANÇA MULTI-CAMADA
-	// Rate limiting por IP + API Key Demo + Fingerprinting + Throttling
+	// API Key Demo (obrigatória) + Scopes + Rate limiting por IP + Fingerprinting + Throttling
 	publicGroup := r.Group("/public")
-	publicGroup.Use(playgroundRateLimiter.Middleware()) // ✅ Middleware de segurança específico
 	{
-		publicGroup.GET("/cep/:codigo", cepHandler.GetCEP)
-		publicGroup.GET("/cnpj/:numero", cnpjHandler.GetCNPJ)
-		publicGroup.GET("/geo/ufs", geoHandler.ListUFs)
-		publicGroup.GET("/geo/ufs/:sigla", geoHandler.GetUF)
+		// CEP (requer scope 'cep')
+		publicGroup.GET("/cep/:codigo", 
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "cep"),  // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			cepHandler.GetCEP,
+		)
+		
+		// CNPJ (requer scope 'cnpj')
+		publicGroup.GET("/cnpj/:numero",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "cnpj"),  // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			cnpjHandler.GetCNPJ,
+		)
+		
+		// GEO (requer scope 'geo')
+		publicGroup.GET("/geo/ufs",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "geo"),  // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			geoHandler.ListUFs,
+		)
+		
+		publicGroup.GET("/geo/ufs/:sigla",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "geo"),  // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			geoHandler.GetUF,
+		)
 	}
 
 	// Auth endpoints (públicos)

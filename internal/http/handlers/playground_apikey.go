@@ -2,10 +2,14 @@ package handlers
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -45,11 +49,11 @@ func (h *PlaygroundAPIKeyHandler) GenerateAPIKey(c *gin.Context) {
 		return
 	}
 
-	// 2. Gerar nova API Key
+	// 2. Gerar nova API Key (formato: keyId.keySecret)
 	now := time.Now()
-	dateStr := now.Format("20060102")
-	randomPart := generateRandomString(24)
-	newAPIKey := fmt.Sprintf("rtc_demo_playground_%s.%s", dateStr, randomPart)
+	keyID := fmt.Sprintf("rtc_demo_playground_%s", now.Format("20060102150405"))
+	keySecret := generateRandomString(32)
+	newAPIKey := fmt.Sprintf("%s.%s", keyID, keySecret)
 
 	// 3. Determinar scopes baseado nos allowedAPIs configurados
 	scopes := settings.Playground.AllowedAPIs
@@ -57,13 +61,23 @@ func (h *PlaygroundAPIKeyHandler) GenerateAPIKey(c *gin.Context) {
 		scopes = []string{"cep", "cnpj", "geo"} // Default
 	}
 
-	// 4. Criar registro da API Key no MongoDB
+	// 4. Gerar hash da API Key (HMAC-SHA256)
+	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		secret = "default-secret-key" // Fallback (não usar em produção)
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(newAPIKey))
+	keyHash := hex.EncodeToString(mac.Sum(nil))
+
+	// 5. Criar registro da API Key no MongoDB
 	apiKeyDoc := domain.APIKey{
-		KeyID:     newAPIKey,
-		KeyHash:   newAPIKey, // Demo key não usa hash
+		KeyID:     keyID,
+		KeyHash:   keyHash,
 		Scopes:    scopes,
 		OwnerID:   "playground-public",
-		ExpiresAt: now.AddDate(10, 0, 0), // Expira em 10 anos (praticamente não expira)
+		ExpiresAt: now.AddDate(10, 0, 0), // Expira em 10 anos
 		Revoked:   false,
 		CreatedAt: now,
 	}
@@ -145,11 +159,11 @@ func (h *PlaygroundAPIKeyHandler) RotateAPIKey(c *gin.Context) {
 		}
 	}
 
-	// 3. Gerar nova API Key
+	// 3. Gerar nova API Key (formato: keyId.keySecret)
 	now := time.Now()
-	dateStr := now.Format("20060102")
-	randomPart := generateRandomString(24)
-	newAPIKey := fmt.Sprintf("rtc_demo_playground_%s.%s", dateStr, randomPart)
+	keyID := fmt.Sprintf("rtc_demo_playground_%s", now.Format("20060102150405"))
+	keySecret := generateRandomString(32)
+	newAPIKey := fmt.Sprintf("%s.%s", keyID, keySecret)
 
 	// 4. Determinar scopes baseado nos allowedAPIs configurados
 	scopes := settings.Playground.AllowedAPIs
@@ -157,10 +171,20 @@ func (h *PlaygroundAPIKeyHandler) RotateAPIKey(c *gin.Context) {
 		scopes = []string{"cep", "cnpj", "geo"} // Default
 	}
 
-	// 5. Criar registro da nova API Key no MongoDB
+	// 5. Gerar hash da API Key (HMAC-SHA256)
+	secret := os.Getenv("APIKEY_HASH_SECRET")
+	if secret == "" {
+		secret = "default-secret-key" // Fallback
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(newAPIKey))
+	keyHash := hex.EncodeToString(mac.Sum(nil))
+
+	// 6. Criar registro da nova API Key no MongoDB
 	apiKeyDoc := domain.APIKey{
-		KeyID:     newAPIKey,
-		KeyHash:   newAPIKey, // Demo key não usa hash
+		KeyID:     keyID,
+		KeyHash:   keyHash,
 		Scopes:    scopes,
 		OwnerID:   "playground-public",
 		ExpiresAt: now.AddDate(10, 0, 0), // Expira em 10 anos
@@ -219,4 +243,3 @@ func generateRandomString(length int) string {
 	}
 	return base64.URLEncoding.EncodeToString(bytes)[:length]
 }
-

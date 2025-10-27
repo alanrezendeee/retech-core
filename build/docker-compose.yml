@@ -7,6 +7,7 @@ services:
     env_file: ../.env
     environment:
       - API_BASE_URL=http://localhost:8080
+      - APIKEY_HASH_SECRET=dev-apikey-secret-change-in-production
     ports:
       - "8080:8080"
     volumes:

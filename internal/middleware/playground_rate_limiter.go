@@ -57,15 +57,59 @@ func (prl *PlaygroundRateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		// ✅ 2. EXTRAIR IP DO CLIENTE
+		// ✅ 2. VERIFICAR SE PLAYGROUND ESTÁ HABILITADO E TEM API KEY VÁLIDA
+		ctx := context.Background()
+		settings, err := prl.settings.Get(ctx)
+		if err != nil || settings == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"type":   "https://retech-core/errors/playground-disabled",
+				"title":  "Playground Indisponível",
+				"status": http.StatusServiceUnavailable,
+				"detail": "Erro ao carregar configurações do playground",
+			})
+			c.Abort()
+			return
+		}
+
+		// Verificar se playground está habilitado
+		if !settings.Playground.Enabled {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"type":   "https://retech-core/errors/playground-disabled",
+				"title":  "Playground Indisponível",
+				"status": http.StatusServiceUnavailable,
+				"detail": "O playground está temporariamente desabilitado",
+			})
+			c.Abort()
+			return
+		}
+
+		// Verificar se tem API Key configurada
+		if settings.Playground.APIKey == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"type":   "https://retech-core/errors/playground-not-configured",
+				"title":  "Playground Não Configurado",
+				"status": http.StatusServiceUnavailable,
+				"detail": "API Key demo não configurada. Entre em contato com o administrador.",
+			})
+			c.Abort()
+			return
+		}
+
+		// ✅ 3. EXTRAIR IP DO CLIENTE
 		clientIP := getClientIP(c)
 		fmt.Printf("🔒 [PLAYGROUND SECURITY] IP: %s | Path: %s\n", clientIP, c.Request.URL.Path)
 
-		// ✅ 3. VERIFICAR SE É API KEY DEMO
+		// ✅ 4. VERIFICAR SE É API KEY DEMO
 		apiKeyValue, exists := c.Get("api_key")
 		if !exists {
 			fmt.Println("⚠️  [PLAYGROUND SECURITY] Nenhuma API key no contexto")
-			c.Next()
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"type":   "https://retech-core/errors/unauthorized",
+				"title":  "API Key Obrigatória",
+				"status": http.StatusUnauthorized,
+				"detail": "Esta rota requer uma API Key válida",
+			})
+			c.Abort()
 			return
 		}
 
@@ -80,21 +124,7 @@ func (prl *PlaygroundRateLimiter) Middleware() gin.HandlerFunc {
 
 		fmt.Printf("🔒 [PLAYGROUND SECURITY] API Key Demo detectada: %s...\n", apiKey[:20])
 
-		// ✅ 5. BUSCAR CONFIGURAÇÕES DO PLAYGROUND
-		ctx := context.Background()
-		settings, err := prl.settings.Get(ctx)
-		if err != nil || settings == nil || !settings.Playground.Enabled {
-			fmt.Println("⚠️  [PLAYGROUND SECURITY] Playground desabilitado ou configuração não encontrada")
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"type":   "https://retech-core/errors/playground-disabled",
-				"title":  "Playground Indisponível",
-				"status": http.StatusServiceUnavailable,
-				"detail": "O playground está temporariamente indisponível",
-			})
-			c.Abort()
-			return
-		}
-
+		// ✅ 5. USAR CONFIGURAÇÕES JÁ CARREGADAS (não buscar de novo)
 		playgroundConfig := settings.Playground
 		rateLimit := playgroundConfig.RateLimit
 
@@ -165,7 +195,7 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 
 	// Verificar limite diário por IP
 	if ipLimit.CountPerDay >= rateLimit.RequestsPerDay {
-		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n", 
+		fmt.Printf("🚫 [PLAYGROUND SECURITY] Limite diário por IP excedido: %s (%d >= %d)\n",
 			clientIP, ipLimit.CountPerDay, rateLimit.RequestsPerDay)
 
 		c.Header("X-RateLimit-Limit-Day", fmt.Sprintf("%d", rateLimit.RequestsPerDay))
@@ -180,6 +210,15 @@ func (prl *PlaygroundRateLimiter) checkIPRateLimit(ctx context.Context, clientIP
 		})
 		c.Abort()
 		return false
+	}
+
+	// ✅ Verificar se mudou de minuto (reset automático)
+	if ipLimit.Minute != currentMinute {
+		// Novo minuto! Resetar contador
+		ipLimit.CountPerMinute = 0
+		ipLimit.Minute = currentMinute
+		fmt.Printf("🔄 [PLAYGROUND SECURITY] Novo minuto detectado para IP %s: %s → %s (count resetado)\n",
+			clientIP, ipLimit.Minute, currentMinute)
 	}
 
 	// Verificar limite por minuto por IP
@@ -299,22 +338,51 @@ func (prl *PlaygroundRateLimiter) incrementCounters(ctx context.Context, clientI
 	// Incrementar contador por IP
 	collIP := prl.db.Collection("playground_rate_limits")
 
-	opts := options.Update().SetUpsert(true)
-	_, err := collIP.UpdateOne(ctx, bson.M{
+	// ✅ Buscar registro atual para verificar se mudou de minuto
+	var currentRecord PlaygroundRateLimit
+	err := collIP.FindOne(ctx, bson.M{
 		"ipAddress": clientIP,
 		"apiKey":    apiKey,
 		"date":      today,
-	}, bson.M{
-		"$inc": bson.M{
-			"countPerDay":    1,
-			"countPerMinute": 1,
-		},
-		"$set": bson.M{
-			"minute":      currentMinute,
-			"lastRequest": now,
-			"updatedAt":   now,
-		},
-	}, opts)
+	}).Decode(&currentRecord)
+
+	opts := options.Update().SetUpsert(true)
+
+	// ✅ Se mudou de minuto, resetar countPerMinute
+	var updateDoc bson.M
+	if err == mongo.ErrNoDocuments || currentRecord.Minute != currentMinute {
+		// Novo minuto ou primeiro registro do dia
+		updateDoc = bson.M{
+			"$inc": bson.M{
+				"countPerDay": 1,
+			},
+			"$set": bson.M{
+				"countPerMinute": 1, // ✅ Reseta para 1 no novo minuto
+				"minute":         currentMinute,
+				"lastRequest":    now,
+				"updatedAt":      now,
+			},
+		}
+	} else {
+		// Mesmo minuto, incrementar normalmente
+		updateDoc = bson.M{
+			"$inc": bson.M{
+				"countPerDay":    1,
+				"countPerMinute": 1,
+			},
+			"$set": bson.M{
+				"minute":      currentMinute,
+				"lastRequest": now,
+				"updatedAt":   now,
+			},
+		}
+	}
+
+	_, err = collIP.UpdateOne(ctx, bson.M{
+		"ipAddress": clientIP,
+		"apiKey":    apiKey,
+		"date":      today,
+	}, updateDoc, opts)
 
 	if err != nil {
 		fmt.Printf("⚠️  [PLAYGROUND SECURITY] Erro ao incrementar contador por IP: %v\n", err)

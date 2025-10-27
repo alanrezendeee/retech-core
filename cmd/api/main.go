@@ -30,7 +30,7 @@ func main() {
 	// Redis (opcional - graceful degradation se não configurado)
 	var redisClient interface{} // interface{} para permitir nil
 	redisURL := os.Getenv("REDIS_URL")
-	
+
 	if redisURL != "" {
 		client, err := cache.NewRedisClient(redisURL, "", 0, log)
 		if err != nil {
@@ -75,7 +75,7 @@ func main() {
 
 	// Settings
 	settings := storage.NewSettingsRepo(m.DB)
-	
+
 	// Garantir que configurações padrão existam
 	if err := settings.Ensure(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to ensure default settings")
@@ -83,7 +83,7 @@ func main() {
 
 	// Activity Logs
 	activityLogs := storage.NewActivityLogsRepo(m.DB)
-	
+
 	// Criar índices para activity logs
 	if err := activityLogs.EnsureIndexes(context.Background()); err != nil {
 		log.Warn().Err(err).Msg("failed to create activity logs indexes")
