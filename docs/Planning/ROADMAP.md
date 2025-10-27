@@ -675,6 +675,27 @@ Performance com cache Redis + Servidor BR:
 - Estimativa: R$ 0/mês (free) ou R$ 130-500/mês (expansão)
 - Latência esperada: 5-15ms (vs 160ms atual)
 
+#### **🏥 Health Check Melhorado** ✅
+- Status REAL de MongoDB e Redis
+- Uptime desde startup
+- Versão da API
+- Auto-refresh 30s no frontend
+- Estados visuais (🟢 Operacional, 🟡 Degradado, 🔴 Indisponível)
+- Graceful degradation (Redis down não afeta status geral)
+
+#### **🎨 UX Final** ✅
+- Performance corrigida em todas as páginas
+- Env `NEXT_PUBLIC_DOCS_URL` (links dinâmicos)
+- Hero "The Retech Core"
+- Rodapé completo (Alan Rezende, Florianópolis, WhatsApp)
+- 6 páginas novas:
+  - `/precos` - Planos + Status da plataforma
+  - `/sobre` - História + Fundador + Missão
+  - `/contato` - Formulário → WhatsApp
+  - `/status` - Health check real (30s refresh)
+  - `/legal/termos` - LGPD compliant
+  - `/legal/privacidade` - LGPD compliant
+
 ---
 
 ### **📅 24 de Outubro de 2025**
@@ -1087,3 +1108,568 @@ NODE_ENV=production
 **Próxima revisão:** 15 de Novembro de 2025 (após migração Oracle Cloud)
 
 **Juntos, construindo o futuro das APIs brasileiras! 🇧🇷**
+
+---
+
+## 📋 **CHECKLIST DE IMPLEMENTAÇÃO - NOVA API**
+
+**Use este checklist SEMPRE que adicionar uma nova API ao sistema!**
+
+---
+
+### **🔧 BACKEND (Go)**
+
+#### **1. Handler da API**
+- [ ] Criar `internal/http/handlers/[nome].go`
+  - [ ] Struct do Handler com deps (db, redis, settings)
+  - [ ] Função principal (ex: `GetData`)
+  - [ ] **Cache 3 camadas:**
+    - [ ] L1: Redis (~1ms)
+    - [ ] L2: MongoDB (~10ms)
+    - [ ] L3: API Externa (~200ms)
+  - [ ] Validação de input (normalização)
+  - [ ] Tratamento de erros (404, 400, 500)
+  - [ ] Logs detalhados (fmt.Printf para debug)
+  - [ ] Função `GetStats` (total cached, recent 24h)
+  - [ ] Função `ClearCache` (limpeza manual)
+
+#### **2. Domain**
+- [ ] Criar struct em `internal/domain/[nome].go`
+  - [ ] Struct principal (dados da API)
+  - [ ] Função `Normalize[Nome]` (limpar input)
+  - [ ] Função `Validate[Nome]` (validar dígitos)
+  - [ ] Tags BSON e JSON
+
+#### **3. Router**
+- [ ] Atualizar `internal/http/router.go`
+  - [ ] Rota protegida: `GET /[nome]/:id` (AuthAPIKey + RequireScope + RateLimit + UsageLogger)
+  - [ ] Rota pública: `GET /public/[nome]/:id` (AuthAPIKey + RequireScope + PlaygroundRateLimit + UsageLogger)
+  - [ ] Rota admin stats: `GET /admin/cache/[nome]/stats` (AuthJWT + SuperAdmin)
+  - [ ] Rota admin clear: `DELETE /admin/cache/[nome]` (AuthJWT + SuperAdmin)
+
+#### **4. Indexes MongoDB**
+- [ ] Atualizar `internal/bootstrap/indexes.go`
+  - [ ] Index único: `[nome]` (ex: `cep`, `cnpj`)
+  - [ ] Index TTL: `cachedAt` (para auto-cleanup)
+  - [ ] Collection: `[nome]_cache`
+
+#### **5. Settings**
+- [ ] Atualizar `internal/domain/settings.go`
+  - [ ] Adicionar em `CacheConfig`: `[Nome] ServiceCacheConfig`
+  - [ ] Defaults em `GetDefaultSettings()`: enabled=true, ttlDays=X, autoCleanup=true
+
+---
+
+### **🎨 FRONTEND (React/Next.js)**
+
+#### **6. Admin Settings**
+- [ ] Atualizar `app/admin/settings/page.tsx`
+  - [ ] **Interface SystemSettings:** adicionar `[nome]: { enabled, ttlDays, autoCleanup }`
+  - [ ] **Estado inicial:** valores padrão
+  - [ ] **loadSettings:** normalização do backend
+  - [ ] **handleSaveSettings:** enviar payload completo
+  - [ ] **load[Nome]CacheStats:** buscar stats
+  - [ ] **handle Clear[Nome]Cache:** limpar cache
+  - [ ] **Card MongoDB Cache - [NOME] (L2):**
+    - [ ] Stats (total cached, recent 24h)
+    - [ ] Toggle "Habilitar Cache de [NOME]"
+    - [ ] Input "TTL do Cache [NOME] (dias)"
+    - [ ] Toggle "Limpeza Automática de [NOME]"
+    - [ ] Botão "Limpar Cache de [NOME]"
+    - [ ] AlertDialog de confirmação
+  - [ ] Chamar `load[Nome]CacheStats()` no useEffect
+
+#### **7. Playground**
+- [ ] Atualizar `app/playground/page.tsx`
+  - [ ] Adicionar `[nome]` no type `APIType`
+  - [ ] Card de seleção de API (botão)
+  - [ ] Formulário de input específico
+  - [ ] Função `handleTest[Nome]` (chamar `/public/[nome]/:id`)
+  - [ ] Exibição de response
+  - [ ] Código de exemplo (JavaScript, Python, PHP, cURL)
+  - [ ] Conditional render baseado em `allowedApis.includes('[nome]')`
+
+#### **8. Admin Settings - Playground**
+- [ ] Atualizar `app/admin/settings/page.tsx`
+  - [ ] Adicionar checkbox '[nome]' na lista de APIs Disponíveis
+  - [ ] Atualizar array: `['cep', 'cnpj', 'geo', '[nome]']`
+  - [ ] Auto-rotação de scopes ao selecionar
+
+#### **9. Ferramenta Pública**
+- [ ] Criar `app/ferramentas/[nome]/page.tsx`
+  - [ ] Hero (título, descrição, badges)
+  - [ ] Card de busca (input + botão)
+  - [ ] Card de resultado (dados formatados)
+  - [ ] Métricas (response time real)
+  - [ ] Botão compartilhar (copiar link)
+  - [ ] SEO Content (O que é? Como usar? API para devs)
+  - [ ] Cards de features (Rápido, Confiável, Gratuito)
+  - [ ] CTA (Testar no Playground, Criar Conta)
+  - [ ] Usar API Key demo de `/public/playground/status`
+  - [ ] Validação de scopes
+
+#### **10. Landing Page API**
+- [ ] Criar `app/apis/[nome]/page.tsx`
+  - [ ] Hero (título, badges, descrição)
+  - [ ] Cards de features
+  - [ ] Métricas (~1ms Redis, ~10ms MongoDB, ~Xms API)
+  - [ ] Código de exemplo (4 linguagens)
+  - [ ] Tabela comparativa (Retech vs Concorrentes)
+  - [ ] Casos de uso (3-5 exemplos)
+  - [ ] FAQ (Accordion com 5 perguntas)
+  - [ ] CTAs (Testar Agora, Criar Conta, Ver Docs)
+
+#### **11. Landing Page Principal**
+- [ ] Atualizar `app/page.tsx`
+  - [ ] Adicionar card da nova API na seção "APIs em Destaque"
+  - [ ] Atualizar contador (ex: 3/36 → 4/36)
+  - [ ] Adicionar no roadmap visual
+
+---
+
+### **📚 DOCUMENTAÇÃO**
+
+#### **12. OpenAPI (Redoc)**
+- [ ] Atualizar `internal/docs/openapi.yaml`
+  - [ ] Path: `/[nome]/:id`
+  - [ ] Parâmetros (path, query, headers)
+  - [ ] Responses (200, 400, 404, 500)
+  - [ ] Exemplos de request/response
+  - [ ] Descrição detalhada
+  - [ ] Tags (categoria)
+
+#### **13. ROADMAP**
+- [ ] Atualizar `docs/Planning/ROADMAP.md`
+  - [ ] Marcar API como concluída [x]
+  - [ ] Atualizar progresso geral (%)
+  - [ ] Adicionar na seção "Últimas Atualizações"
+  - [ ] Detalhes:
+    - [ ] Endpoints disponíveis
+    - [ ] Cache 3 camadas
+    - [ ] TTL configurável
+    - [ ] Performance (L1, L2, L3)
+    - [ ] Admin settings
+    - [ ] Scope
+    - [ ] Graceful degradation
+
+#### **14. README (se houver)**
+- [ ] Atualizar lista de APIs disponíveis
+- [ ] Atualizar exemplos de código
+- [ ] Atualizar badges (número de APIs)
+
+---
+
+### **🔐 SEGURANÇA & PERMISSÕES**
+
+#### **15. Scopes**
+- [ ] Criar scope `[nome]` no sistema
+- [ ] Atualizar `internal/auth/scope_middleware.go` (se necessário)
+- [ ] Documentar scope em `docs/SCOPES.md` (se houver)
+
+#### **16. Rate Limiting**
+- [ ] Aplicar middleware `RateLimit` na rota protegida
+- [ ] Aplicar middleware `PlaygroundRateLimiter` na rota pública
+- [ ] Testar limites (daily + per-minute)
+
+---
+
+### **🧪 TESTES & VALIDAÇÃO**
+
+#### **17. Testes Manuais**
+- [ ] Testar endpoint protegido com API Key válida
+- [ ] Testar endpoint sem API Key (deve retornar 401)
+- [ ] Testar endpoint sem scope (deve retornar 403)
+- [ ] Testar cache L1 (Redis) - 2ª request deve ser ~1ms
+- [ ] Testar cache L2 (MongoDB) - Redis off, deve usar MongoDB
+- [ ] Testar API Externa - Cache vazio, deve consultar fonte
+- [ ] Testar rate limiting (exceder limite)
+- [ ] Testar input inválido (deve retornar 400)
+- [ ] Testar ID não encontrado (deve retornar 404)
+
+#### **18. Testes de Admin**
+- [ ] Toggle enable/disable cache
+- [ ] Alterar TTL e verificar se persiste
+- [ ] Toggle auto-cleanup
+- [ ] Limpar cache manualmente
+- [ ] Verificar stats (total, recent 24h)
+
+#### **19. Testes de Playground**
+- [ ] Selecionar nova API no playground
+- [ ] Fazer consulta
+- [ ] Verificar se API Key demo tem scope correto
+- [ ] Testar rate limiting do playground
+
+---
+
+### **🚀 DEPLOY & PRODUÇÃO**
+
+#### **20. Variáveis de Ambiente**
+- [ ] Verificar se novas envs são necessárias
+- [ ] Adicionar no Railway (se necessário)
+- [ ] Documentar em `env.example`
+
+#### **21. Migrations**
+- [ ] Indexes MongoDB criados automaticamente (bootstrap)
+- [ ] Settings defaults aplicados (primeira vez)
+- [ ] Testar em staging antes de produção
+
+#### **22. Monitoramento**
+- [ ] Adicionar logs de acesso
+- [ ] Verificar usage tracking funcionando
+- [ ] Verificar activity logs
+- [ ] Monitorar cache hit rate (meta: >80%)
+
+---
+
+### **📢 MARKETING & COMUNICAÇÃO**
+
+#### **23. Anúncio**
+- [ ] Post no blog (se houver)
+- [ ] Email para usuários existentes
+- [ ] Update no LinkedIn/Twitter
+- [ ] Update no WhatsApp status
+
+#### **24. SEO**
+- [ ] Sitemap.xml atualizado automaticamente
+- [ ] Meta tags na landing page da API
+- [ ] Schema.org (se aplicável)
+- [ ] Submit para Google Search Console
+
+---
+
+## 🗺️ **MAPA DE DEPENDÊNCIAS**
+
+Quando você adiciona **QUALQUER** mudança no sistema, verifique se afeta:
+
+### **Sistema de Cache**
+```
+Se mudar: internal/domain/settings.go (CacheConfig)
+Atualizar:
+  ✓ app/admin/settings/page.tsx (interface + estado)
+  ✓ Handlers que usam cache (cep.go, cnpj.go, [novo].go)
+  ✓ Migration automática (settings.go Get)
+```
+
+### **Sistema de Scopes**
+```
+Se mudar: Adicionar novo scope
+Atualizar:
+  ✓ app/admin/apikeys/page.tsx (checkboxes)
+  ✓ app/admin/settings/page.tsx (playground APIs)
+  ✓ app/playground/page.tsx (conditional render)
+  ✓ docs/openapi.yaml (security requirements)
+```
+
+### **Rate Limiting**
+```
+Se mudar: Limites padrão
+Atualizar:
+  ✓ internal/domain/rate_limit.go
+  ✓ app/admin/settings/page.tsx (defaults)
+  ✓ app/precos/page.tsx (descrição de planos)
+  ✓ docs/Planning/ROADMAP.md
+```
+
+### **Variáveis de Ambiente**
+```
+Se adicionar: Nova env
+Atualizar:
+  ✓ env.example (frontend e backend)
+  ✓ build/docker-compose.yml (local dev)
+  ✓ Railway (produção)
+  ✓ docs/Planning/ROADMAP.md (seção Variáveis)
+```
+
+### **Health Check**
+```
+Se adicionar: Novo serviço crítico
+Atualizar:
+  ✓ internal/http/handlers/health.go (verificação)
+  ✓ app/status/page.tsx (card visual)
+  ✓ cmd/api/main.go (passar dependência)
+```
+
+### **Links de Documentação**
+```
+Se mudar: URL do Redoc
+Atualizar:
+  ✓ env.example (NEXT_PUBLIC_DOCS_URL)
+  ✓ Railway (variável)
+  ✓ Todos os links que apontam para docs
+```
+
+### **Informações de Contato**
+```
+Se mudar: WhatsApp, Email, Endereço
+Atualizar:
+  ✓ app/admin/settings/page.tsx (contact defaults)
+  ✓ app/contato/page.tsx (hardcoded)
+  ✓ app/sobre/page.tsx (hardcoded)
+  ✓ app/legal/termos/page.tsx (contato legal)
+  ✓ app/legal/privacidade/page.tsx (DPO)
+  ✓ app/page.tsx (rodapé)
+  ✓ docs/Planning/ROADMAP.md (seção Contato)
+```
+
+### **Performance/Latência**
+```
+Se mudar: Migração Oracle, otimização
+Atualizar:
+  ✓ app/page.tsx (hero)
+  ✓ app/apis/cep/page.tsx (métricas)
+  ✓ app/ferramentas/consultar-cep/page.tsx (features)
+  ✓ app/ferramentas/validar-cnpj/page.tsx (features)
+  ✓ app/precos/page.tsx (status)
+  ✓ app/status/page.tsx (latência média)
+  ✓ docs/Planning/ROADMAP.md (diferenciais)
+```
+
+### **Planos e Preços**
+```
+Se mudar: Valores, limites, features
+Atualizar:
+  ✓ app/precos/page.tsx (cards de planos)
+  ✓ app/page.tsx (landing - se mencionar preços)
+  ✓ app/legal/termos/page.tsx (limites por plano)
+  ✓ internal/domain/settings.go (defaults)
+  ✓ docs/Planning/ROADMAP.md
+```
+
+---
+
+## 🔄 **WORKFLOW PADRÃO: ADICIONAR NOVA API**
+
+### **Passo 1: Planejamento (30min)**
+```bash
+1. Pesquisar fonte de dados (API pública?)
+2. Verificar custo (gratuito vs pago)
+3. Estimar latência (cache strategy)
+4. Definir scope name
+5. Definir TTL padrão
+6. Documentar em issue/PR
+```
+
+### **Passo 2: Backend (2-4h)**
+```bash
+1. Criar handler com cache 3 camadas
+2. Criar domain structs
+3. Adicionar rotas (protegida + pública + admin)
+4. Criar indexes MongoDB
+5. Atualizar settings (CacheConfig)
+6. Testar manualmente (Postman/curl)
+7. Compilar sem erros
+```
+
+### **Passo 3: Frontend Admin (1-2h)**
+```bash
+1. Adicionar interface em SystemSettings
+2. Adicionar card de cache em admin/settings
+3. Implementar stats, clear, toggle, TTL
+4. Adicionar checkbox no playground settings
+5. Testar admin settings (salvar, recarregar)
+```
+
+### **Passo 4: Frontend Público (3-5h)**
+```bash
+1. Adicionar no playground (card + formulário + código)
+2. Criar ferramenta pública (/ferramentas/[nome])
+3. Criar landing page (/apis/[nome])
+4. Atualizar landing principal (card novo)
+5. Testar sem autenticação (API Key demo)
+```
+
+### **Passo 5: Documentação (1-2h)**
+```bash
+1. Atualizar OpenAPI (Redoc)
+2. Atualizar ROADMAP
+3. Criar README específico (se necessário)
+4. Screenshots para docs (se necessário)
+```
+
+### **Passo 6: Testes & QA (1-2h)**
+```bash
+1. Executar checklist completo (17-19)
+2. Testar em dev
+3. Deploy em staging
+4. Testar em staging
+5. Deploy em produção
+6. Smoke tests em produção
+```
+
+### **Passo 7: Comunicação (30min)**
+```bash
+1. Anunciar nova API
+2. Atualizar changelog
+3. Notificar usuários (email/blog)
+```
+
+**⏱️ Tempo total estimado: 9-16 horas por API**
+
+---
+
+## 📊 **MÉTRICAS DE QUALIDADE**
+
+Antes de considerar uma API "completa", verifique:
+
+- [ ] **Performance:** Cache hit rate > 80%
+- [ ] **Confiabilidade:** Uptime > 99%
+- [ ] **Segurança:** Scopes validando corretamente
+- [ ] **UX:** Playground funcionando sem erros
+- [ ] **Docs:** OpenAPI completo e exemplos funcionais
+- [ ] **Admin:** Todas as configurações salvando
+- [ ] **Legal:** Dentro dos termos de uso das fontes
+
+---
+
+## 🎯 **MATRIZ DE IMPACTO**
+
+Quando você modifica um componente, veja o impacto:
+
+| Componente Modificado | Impacto em... | Ação Necessária |
+|----------------------|---------------|-----------------|
+| **settings.go (CacheConfig)** | Frontend (interface), Handlers, Admin UI | Atualizar interface TS + handlers + UI |
+| **router.go (novas rotas)** | Nenhum | Apenas adicionar |
+| **health.go (novos serviços)** | app/status/page.tsx | Adicionar card visual |
+| **domain (novos structs)** | Nenhum | Apenas criar |
+| **Indexes (bootstrap)** | Nenhum | Auto-aplica no startup |
+| **env.example** | Railway, Docker Compose | Adicionar variável |
+| **Rodapé (links)** | TODAS as páginas | Verificar se component está compartilhado |
+| **Admin Settings** | Todos que usam settings | Recarregar para pegar novos valores |
+| **Playground** | Nenhum | Apenas adicionar opção |
+| **Scopes** | API Keys, Playground, Admin | Atualizar em 3 lugares |
+
+---
+
+## 🛡️ **PROTEÇÕES ANTI-QUEBRA**
+
+### **Antes de Commitar:**
+1. ✅ Build backend sem erros
+2. ✅ Build frontend sem erros
+3. ✅ Testar localmente TODAS as features antigas
+4. ✅ Testar nova feature
+5. ✅ Verificar logs (sem errors no console)
+6. ✅ Verificar linter (sem warnings críticos)
+
+### **Estratégia de Rollback:**
+```bash
+# Se algo quebrar em produção
+1. Identificar commit problemático
+2. git revert [commit-hash]
+3. git push origin main
+4. Railway faz redeploy automático
+5. Fixar localmente e refazer
+```
+
+### **Branch Strategy:**
+```bash
+# Para features grandes
+1. git checkout -b feature/nome-api
+2. Implementar completo
+3. Testar tudo
+4. PR para main
+5. Review
+6. Merge quando aprovado
+```
+
+---
+
+## 📖 **DOCUMENTOS A MANTER ATUALIZADOS**
+
+### **Sempre que adicionar API:**
+1. ✅ `docs/Planning/ROADMAP.md` - Progresso e status
+2. ✅ `internal/docs/openapi.yaml` - Documentação técnica
+3. ✅ `README.md` (raiz) - Se houver
+4. ✅ `CHANGELOG.md` - Histórico de versões (se houver)
+
+### **Sempre que mudar infraestrutura:**
+1. ✅ `docs/ORACLE_CLOUD_RESEARCH.md` - Se afetar deploy
+2. ✅ `build/docker-compose.yml` - Se adicionar serviço
+3. ✅ `.github/workflows/*` - Se mudar CI/CD
+4. ✅ `env.example` - Se adicionar variável
+
+### **Sempre que mudar preços/planos:**
+1. ✅ `app/precos/page.tsx` - Tabela de planos
+2. ✅ `app/page.tsx` - Se mencionar na landing
+3. ✅ `app/legal/termos/page.tsx` - Limites por plano
+4. ✅ `internal/domain/settings.go` - Rate limits padrão
+
+### **Sempre que mudar contato:**
+1. ✅ `app/admin/settings/page.tsx` - Contact defaults
+2. ✅ `app/contato/page.tsx` - WhatsApp hardcoded
+3. ✅ `app/sobre/page.tsx` - Informações do fundador
+4. ✅ `app/legal/termos/page.tsx` - Contato legal
+5. ✅ `app/legal/privacidade/page.tsx` - DPO
+6. ✅ `app/page.tsx` - Rodapé
+7. ✅ `docs/Planning/ROADMAP.md` - Seção Contato
+
+---
+
+## ⚠️ **PONTOS DE ATENÇÃO**
+
+### **Não Esquecer:**
+- ⚠️ Atualizar contador de APIs (ex: 3/36 → 4/36)
+- ⚠️ Adicionar no sitemap (automático, mas verificar)
+- ⚠️ Testar em mobile (responsivo)
+- ⚠️ Verificar acessibilidade (ARIA labels)
+- ⚠️ Verificar SEO (meta tags)
+- ⚠️ Testar compartilhamento (Open Graph)
+
+### **Performance:**
+- ⚠️ Monitorar cache hit rate (primeiro mês)
+- ⚠️ Ajustar TTL se necessário
+- ⚠️ Verificar latência da fonte externa
+- ⚠️ Considerar fallback se fonte for instável
+
+### **Custos:**
+- ⚠️ Se fonte é paga, calcular custo por request
+- ⚠️ Definir cache agressivo para reduzir chamadas
+- ⚠️ Documentar custo em `docs/CUSTOS.md` (se criar)
+
+---
+
+## 🎁 **TEMPLATE DE COMMIT**
+
+```bash
+git commit -m "✨ feat: Adicionar API de [NOME]
+
+- Endpoint protegido: GET /[nome]/:id
+- Endpoint público: GET /public/[nome]/:id
+- Cache 3 camadas (Redis L1, MongoDB L2, API L3)
+- TTL padrão: X dias
+- Scope: [nome]
+- Admin settings: toggle, TTL, stats, clear
+- Playground: card + formulário + código
+- Ferramenta pública: /ferramentas/[nome]
+- Landing page: /apis/[nome]
+- Docs: OpenAPI atualizado
+- ROADMAP: Atualizado (Y/36 APIs)
+
+Performance:
+- L1 (Redis): ~1ms
+- L2 (MongoDB): ~10ms
+- L3 (API): ~Xms
+
+Closes #123
+"
+```
+
+---
+
+## 📚 **ARQUIVOS DE REFERÊNCIA**
+
+Para cada nova API, use como referência:
+
+- **Handler:** `internal/http/handlers/cep.go` (padrão completo)
+- **Domain:** `internal/domain/cep.go` (normalização + validação)
+- **Admin Settings:** Seção CEP em `app/admin/settings/page.tsx`
+- **Playground:** Seção CEP em `app/playground/page.tsx`
+- **Ferramenta:** `app/ferramentas/consultar-cep/page.tsx`
+- **Landing:** `app/apis/cep/page.tsx`
+
+---
+
+**ROADMAP ATUALIZADO COM CHECKLIST COMPLETO! 🎉**
+
+---
+
+**AGORA SIM, TUDO 100% DOCUMENTADO E ORGANIZADO! 🚀**
