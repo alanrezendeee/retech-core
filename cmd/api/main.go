@@ -89,10 +89,11 @@ func main() {
 		log.Warn().Err(err).Msg("failed to create activity logs indexes")
 	}
 
-	// 🎯 Criar/Atualizar API Key Demo para Playground (usando settings)
-	if err := bootstrap.EnsureDemoAPIKey(context.Background(), apikeys, tenants, settings, m.DB); err != nil {
-		log.Warn().Err(err).Msg("failed to ensure demo API key")
-	}
+	// 🎯 DESABILITADO: API Key Demo agora é criada manualmente via admin/settings
+	// Usar botão "Gerar Nova" ou "Rotacionar" em /admin/settings
+	// if err := bootstrap.EnsureDemoAPIKey(context.Background(), apikeys, tenants, settings, m.DB); err != nil {
+	// 	log.Warn().Err(err).Msg("failed to ensure demo API key")
+	// }
 
 	// JWT Service
 	jwtService := auth.NewJWTService(
