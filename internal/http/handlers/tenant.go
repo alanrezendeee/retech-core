@@ -368,6 +368,12 @@ func (h *TenantHandler) GetMyConfig(c *gin.Context) {
 						"description": "Consulta CEP com cache (ViaCEP + Brasil API)",
 						"available":   true,
 					},
+					{
+						"method":      "GET",
+						"path":        "/cep/buscar",
+						"description": "🆕 Busca reversa: encontra CEP por endereço (UF, cidade, logradouro). Aceita acentos! Até 50 resultados.",
+						"available":   true,
+					},
 				},
 			},
 			{

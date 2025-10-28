@@ -193,6 +193,220 @@ paths:
         '503':
           $ref: '#/components/responses/Maintenance'
 
+  /cep/buscar:
+    get:
+      tags: [CEP]
+      summary: Buscar CEP por Endereço (Busca Reversa)
+      description: |
+        🆕 **Busca reversa de CEP**: encontra CEPs a partir do endereço.
+        
+        Digite a rua, cidade e estado para descobrir até **50 CEPs** correspondentes.
+        
+        **Fontes de Dados:**
+        - 🥇 **ViaCEP** (busca por endereço)
+        - 💾 **Cache** (7 dias)
+        
+        **Performance:**
+        - Cache: ~1-10ms
+        - ViaCEP: ~100-200ms
+        
+        **Validações:**
+        - ✅ UF deve ter 2 caracteres (ex: SP, RJ)
+        - ✅ Cidade deve ter no mínimo 3 caracteres
+        - ✅ Logradouro deve ter no mínimo 3 caracteres
+        
+        **Limitações:**
+        - 📋 Retorna até 50 CEPs por busca
+        - 🔍 Quanto mais específico, melhor o resultado
+        - 📝 Busca por aproximação de nome
+        
+        **Exemplos de uso:**
+        ```bash
+        # Com acentos (recomendado - mais preciso)
+        curl "__API_BASE_URL__/cep/buscar?uf=SP&cidade=São+Paulo&logradouro=Paulista" \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Sem acentos (funciona, mas menos preciso)
+        curl "__API_BASE_URL__/cep/buscar?uf=SP&cidade=Sao+Paulo&logradouro=Paulista" \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # URL encoded (também funciona)
+        curl "__API_BASE_URL__/cep/buscar?uf=RS&cidade=Porto%20Alegre&logradouro=Andradas" \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+        
+        **📝 Dicas de Formatação:**
+        - ✅ **Acentos:** Pode enviar com acentos! A API normaliza automaticamente.
+        - ✅ **Espaços:** Use `+` ou `%20` (ambos funcionam)
+        - ✅ **Case:** Maiúsculas/minúsculas não importam (exceto UF que deve ser MAIÚSCULO)
+        - ⚡ **Encoding:** Feito automaticamente pelo backend
+        
+        **Casos de uso:**
+        - 📝 Autocomplete de endereços
+        - ✅ Validação de formulários
+        - 🔄 Preenchimento automático de CEP
+        - 🔍 Busca quando usuário não sabe o CEP
+        
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: uf
+          in: query
+          required: true
+          description: "Sigla do estado (2 caracteres)"
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+            example: "SP"
+        - name: cidade
+          in: query
+          required: true
+          description: |
+            Nome da cidade (mínimo 3 caracteres)
+            
+            **✅ Aceita acentos:** "São Paulo", "João Pessoa", "Brasília"
+            
+            **Encoding:** A API faz URL encoding automaticamente. Você pode enviar:
+            - Com acentos: `cidade=São Paulo` (recomendado)
+            - Sem acentos: `cidade=Sao Paulo` (funciona, mas menos preciso)
+            - URL encoded: `cidade=S%C3%A3o%20Paulo` (também funciona)
+          schema:
+            type: string
+            minLength: 3
+            example: "São Paulo"
+        - name: logradouro
+          in: query
+          required: true
+          description: |
+            Nome da rua/avenida (mínimo 3 caracteres)
+            
+            **✅ Aceita acentos:** "João Pessoa", "São José", "Cristóvão"
+            
+            **Dica:** Quanto mais específico, melhor o resultado.
+            - ✅ Bom: "Paulista"
+            - ✅ Melhor: "Avenida Paulista"
+            - ❌ Muito genérico: "Rua" (pode retornar muitos resultados)
+          schema:
+            type: string
+            minLength: 3
+            example: "Paulista"
+      responses:
+        '200':
+          description: CEPs encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CEP'
+                    description: Lista de CEPs encontrados (até 50)
+                  count:
+                    type: integer
+                    description: Número de resultados retornados
+                    example: 12
+                  source:
+                    type: string
+                    description: Fonte dos dados
+                    enum: [viacep, redis-cache, mongodb-cache]
+                    example: "viacep"
+              examples:
+                paulista_sp:
+                  summary: "Avenida Paulista - São Paulo/SP"
+                  value:
+                    results:
+                      - cep: "01310100"
+                        logradouro: "Avenida Paulista"
+                        complemento: "de 612 a 1510 - lado par"
+                        bairro: "Bela Vista"
+                        localidade: "São Paulo"
+                        uf: "SP"
+                        ibge: "3550308"
+                        ddd: "11"
+                        source: "viacep"
+                      - cep: "01311000"
+                        logradouro: "Avenida Paulista"
+                        complemento: "de 1865 a 2265 - lado ímpar"
+                        bairro: "Bela Vista"
+                        localidade: "São Paulo"
+                        uf: "SP"
+                        ibge: "3550308"
+                        ddd: "11"
+                        source: "viacep"
+                      - cep: "01311100"
+                        logradouro: "Avenida Paulista"
+                        complemento: "de 1537 a 1863 - lado ímpar"
+                        bairro: "Bela Vista"
+                        localidade: "São Paulo"
+                        uf: "SP"
+                        ibge: "3550308"
+                        ddd: "11"
+                        source: "viacep"
+                    count: 3
+                    source: "viacep"
+                from_cache:
+                  summary: "Resultado do cache (rápido)"
+                  value:
+                    results:
+                      - cep: "90010150"
+                        logradouro: "Rua dos Andradas"
+                        bairro: "Centro Histórico"
+                        localidade: "Porto Alegre"
+                        uf: "RS"
+                        ibge: "4314902"
+                        ddd: "51"
+                        source: "redis-cache"
+                    count: 1
+                    source: "redis-cache"
+        '400':
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_params:
+                  summary: "Parâmetros obrigatórios ausentes"
+                  value:
+                    type: "https://retech-core/errors/validation"
+                    title: "Invalid Parameters"
+                    status: 400
+                    detail: "Parâmetros obrigatórios: uf, cidade, logradouro"
+                min_length:
+                  summary: "Tamanho mínimo não atingido"
+                  value:
+                    type: "https://retech-core/errors/validation"
+                    title: "Invalid Parameters"
+                    status: 400
+                    detail: "Cidade e logradouro devem ter no mínimo 3 caracteres"
+                invalid_uf:
+                  summary: "UF inválida"
+                  value:
+                    type: "https://retech-core/errors/validation"
+                    title: "Invalid UF"
+                    status: 400
+                    detail: "UF deve ter 2 caracteres (ex: SP, RJ, RS)"
+        '404':
+          description: Nenhum CEP encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/not-found"
+                title: "CEPs Not Found"
+                status: 404
+                detail: "Nenhum CEP encontrado para o endereço informado"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
+
   # ==========================================
   # CNPJ
   # ==========================================

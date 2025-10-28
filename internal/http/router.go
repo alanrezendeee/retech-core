@@ -152,6 +152,15 @@ func NewRouter(
 			cepHandler.GetCEP,
 		)
 
+		// CEP Search - Busca reversa (requer scope 'cep')
+		publicGroup.GET("/cep/buscar",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "cep"), // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			cepHandler.SearchCEP,
+		)
+
 		// CNPJ (requer scope 'cnpj')
 		publicGroup.GET("/cnpj/:numero",
 			auth.AuthAPIKey(apikeys),
@@ -217,6 +226,7 @@ func NewRouter(
 	)
 	{
 		cepGroup.GET("/:codigo", cepHandler.GetCEP)
+		cepGroup.GET("/buscar", cepHandler.SearchCEP) // Busca reversa
 	}
 
 	// CNPJ endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
