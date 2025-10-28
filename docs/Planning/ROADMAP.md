@@ -1272,7 +1272,21 @@ NODE_ENV=production
     - Validação: normalizar entrada antes de processar
     - Tratamento: aceitar diferentes formatos (com/sem acentos, formatação, etc)
 
-12. **Commit e Deploy**
+12. **Atualizar Sitemap (se aplicável)**
+    - Arquivo: `app/sitemap.ts`
+    - Adicionar nova ferramenta pública
+    - Adicionar novas páginas criadas
+    - Verificar prioridades (0.1-1.0)
+    - ⚠️ Não esquecer redirects (ex: `/termos` → `/legal/termos`)
+
+13. **Verificar SEO (Pós-Deploy)**
+    - Verificar se não criou 404s acidentalmente
+    - Testar redirects (se criou)
+    - Verificar robots.txt permite crawling
+    - Verificar meta tags (title, description)
+    - Usar ferramenta: Google Search Console ou similar
+
+14. **Commit e Deploy**
     - Build sem erros (Go + Next.js)
     - Commit com mensagem clara
     - Deploy (Railway auto-deploy)
@@ -1309,17 +1323,25 @@ NODE_ENV=production
 - `internal/http/handlers/tenant.go` (+6 linhas - docs painel)
 - `internal/http/router.go` (+12 linhas - rotas)
 
-**Frontend (4 arquivos, 2 novos):**
-- `app/ferramentas/buscar-cep/layout.tsx` (novo)
-- `app/ferramentas/buscar-cep/page.tsx` (novo, 250 linhas)
-- `app/page.tsx` (+95 linhas - card novo)
-- `app/painel/docs/page.tsx` (+52 linhas - dicas de formatação)
+**Frontend (8 arquivos, 6 novos):**
+- 🆕 `app/ferramentas/buscar-cep/layout.tsx` (novo)
+- 🆕 `app/ferramentas/buscar-cep/page.tsx` (novo, 250 linhas)
+- 🆕 `app/painel/recuperar-senha/page.tsx` (novo, 120 linhas)
+- 🆕 `app/admin/recuperar-senha/page.tsx` (novo, 120 linhas)
+- 🆕 `app/privacidade/page.tsx` (redirect)
+- 🆕 `app/termos/page.tsx` (redirect)
+- ✏️ `app/page.tsx` (+95 linhas - card novo)
+- ✏️ `app/painel/docs/page.tsx` (+52 linhas - dicas de formatação)
+- ✏️ `app/sitemap.ts` (+50 linhas - novas páginas)
 
 **Documentação (2 arquivos):**
-- `internal/docs/openapi.yaml` (+220 linhas - com dicas de encoding)
-- `docs/Planning/ROADMAP.md` (+120 linhas - checklist simplificado)
+- ✏️ `internal/docs/openapi.yaml` (+220 linhas - com dicas de encoding)
+- ✏️ `docs/Planning/ROADMAP.md` (+200 linhas - checklist + boas práticas)
 
-**Total:** 9 arquivos | ~1.000 linhas | ~6 horas ⏱️
+**Outros:**
+- 🆕 `public/llms.txt` (novo - para LLMs)
+
+**Total:** 14 arquivos | ~1.300 linhas | ~7 horas ⏱️
 
 ---
 
