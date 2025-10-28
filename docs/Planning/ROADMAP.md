@@ -1202,35 +1202,77 @@ NODE_ENV=production
    - Integrar com API Key demo do playground
    - Adicionar badge "NOVO" se for recente
 
-6. **Atualizar ROADMAP**
+6. **Playground - Avaliar se Faz Sentido Adicionar**
+   
+   **⚠️ NEM TUDO vai para o playground!**
+   
+   **✅ ADICIONAR no playground SE:**
+   - Funcionalidade CORE da API
+   - Input simples (1-2 campos max)
+   - Desenvolvedores vão querer **testar o código**
+   - Gerar código automático é útil
+   - Exemplo: consulta CEP por código, busca CNPJ, listar UFs
+   
+   **❌ NÃO ADICIONAR no playground SE:**
+   - Já existe ferramenta dedicada funcional
+   - Input muito complexo (3+ campos)
+   - Foco é usuário final, não desenvolvedor
+   - Já tem SEO próprio (ferramenta pública)
+   - Exemplo: busca reversa CEP (3 inputs + ferramenta própria)
+   
+   **🎯 Regra de ouro:**
+   > "Playground é para devs testarem e copiarem código. Ferramenta é para usuários resolverem problemas."
+   
+   **📋 Exemplos de Decisões:**
+   
+   | Funcionalidade | Playground? | Ferramenta? | Motivo |
+   |----------------|-------------|-------------|--------|
+   | Consulta CEP por código | ✅ Sim | ✅ Sim | Core + simples (1 input) |
+   | Busca reversa CEP | ❌ Não | ✅ Sim | 3 inputs + foco SEO |
+   | Consulta CNPJ | ✅ Sim | ✅ Sim | Core + simples (1 input) |
+   | Lista UFs | ✅ Sim | ❌ Não | Sem input + útil para devs |
+   | Cotação moedas | ✅ Sim | ❌ Não | Simples + devs precisam testar |
+   | Cálculo de frete | ❌ Não | ✅ Sim | 5+ inputs + foco usuário final |
+   
+   **🔄 Fluxo de Decisão:**
+   ```
+   Nova funcionalidade implementada
+            ↓
+   Quantos inputs? → 1-2 → Público-alvo? → Devs → ✅ PLAYGROUND + Ferramenta
+            ↓                            → Usuários → ✅ Ferramenta
+            ↓
+   Quantos inputs? → 3+ → ✅ Apenas FERRAMENTA (não playground)
+   ```
+
+7. **Atualizar ROADMAP**
    - Marcar endpoints como [x] concluído
    - Adicionar na seção "Últimas Atualizações" com data
    - ⚠️ Verificar se altera contador (Nova API vs Funcionalidade)
 
-7. **Testar Tudo**
+8. **Testar Tudo**
    - Backend: endpoint funcionando, cache L1/L2/L3, validações
-   - Frontend: ferramenta pública, playground (se aplicável)
+   - Frontend: ferramenta pública, playground (se foi adicionado)
    - Docs: Redoc e Painel Docs mostrando endpoint
    - Analytics: fazer 2-3 requests e verificar em `/admin/analytics`
    - Mobile: responsividade
 
-8. **Verificar Segurança**
+9. **Verificar Segurança**
    - API Key obrigatória
    - Scope correto aplicado
    - Rate limiting funcionando
    - Logs de usage salvando
 
-9. **Performance**
-   - Cache hit após 2ª request
-   - Response time adequado
-   - Graceful degradation (se Redis cair)
+10. **Performance**
+    - Cache hit após 2ª request
+    - Response time adequado
+    - Graceful degradation (se Redis cair)
 
-10. **Melhorias no Código (se aplicável)**
+11. **Melhorias no Código (se aplicável)**
     - URL Encoding: usar `url.PathEscape()` ou `url.QueryEscape()` para parâmetros
     - Validação: normalizar entrada antes de processar
     - Tratamento: aceitar diferentes formatos (com/sem acentos, formatação, etc)
 
-11. **Commit e Deploy**
+12. **Commit e Deploy**
     - Build sem erros (Go + Next.js)
     - Commit com mensagem clara
     - Deploy (Railway auto-deploy)
