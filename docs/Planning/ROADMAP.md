@@ -1280,11 +1280,19 @@ NODE_ENV=production
     - ⚠️ Não esquecer redirects (ex: `/termos` → `/legal/termos`)
 
 13. **Verificar SEO (Pós-Deploy)**
-    - Verificar se não criou 404s acidentalmente
-    - Testar redirects (se criou)
-    - Verificar robots.txt permite crawling
-    - Verificar meta tags (title, description)
-    - Usar ferramenta: Google Search Console ou similar
+    - **Títulos únicos:** Cada página deve ter title diferente
+      - Criar `layout.tsx` em cada pasta se necessário
+      - Formato: `[Função] - [Seção] | Retech Core`
+      - Ex: `Login - Portal do Desenvolvedor | Retech Core API`
+    - **Meta descriptions únicas:** Cada página deve ter description específica
+      - Descrever o propósito exato da página
+      - Incluir keywords relevantes
+    - **Verificar 404s:**
+      - Testar todos os links internos
+      - Criar redirects se necessário (`/termos` → `/legal/termos`)
+    - **Robots.txt:** Verificar se permite crawling
+    - **Sitemap:** Verificar se todas as páginas públicas estão incluídas
+    - **Ferramenta:** Usar Google Search Console ou Ahrefs Site Audit
 
 14. **Commit e Deploy**
     - Build sem erros (Go + Next.js)
