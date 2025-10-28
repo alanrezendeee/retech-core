@@ -435,18 +435,23 @@ func (h *TenantHandler) GetMyUsage(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// ✅ FIX: Usar timezone Brasília (consistência com admin)
+	now := time.Now()
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	nowBrasilia := now.In(loc)
+	today := nowBrasilia.Format("2006-01-02")
+	startOfMonth := nowBrasilia.Format("2006-01")
+
 	// Total de requests
 	totalRequests, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"tenantId": tenantID})
 
-	// Requests hoje
-	today := time.Now().Format("2006-01-02")
+	// Requests hoje (timezone Brasília)
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"tenantId": tenantID,
 		"date":     today,
 	})
 
-	// Requests mês
-	startOfMonth := time.Now().Format("2006-01")
+	// Requests mês (timezone Brasília)
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"tenantId": tenantID,
 		"date":     bson.M{"$regex": "^" + startOfMonth},
@@ -552,11 +557,16 @@ func (h *TenantHandler) GetMyStats(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// ✅ FIX: Usar timezone Brasília (consistência)
+	now := time.Now()
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	nowBrasilia := now.In(loc)
+	today := nowBrasilia.Format("2006-01-02")
+
 	// 1. Total de API Keys ativas
 	activeKeys, _ := h.apikeys.CountByOwner(ctx, tenantID)
 
-	// 2. Buscar rate limit atual do tenant
-	today := time.Now().Format("2006-01-02")
+	// 2. Buscar rate limit atual do tenant (timezone Brasília)
 	var rateLimit domain.RateLimit
 	err := h.db.DB.Collection("rate_limits").FindOne(ctx, bson.M{
 		"tenantId": tenantID,

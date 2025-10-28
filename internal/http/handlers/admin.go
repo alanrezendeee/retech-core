@@ -30,6 +30,13 @@ func NewAdminHandler(tenants *storage.TenantsRepo, apikeys *storage.APIKeysRepo,
 func (h *AdminHandler) GetStats(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// ✅ FIX: Usar timezone Brasília (consistência com analytics)
+	now := time.Now()
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	nowBrasilia := now.In(loc)
+	today := nowBrasilia.Format("2006-01-02")
+	startOfMonth := nowBrasilia.Format("2006-01")
+
 	// Contar tenants
 	totalTenants, _ := h.db.DB.Collection("tenants").CountDocuments(ctx, bson.M{})
 	activeTenants, _ := h.db.DB.Collection("tenants").CountDocuments(ctx, bson.M{"active": true})
@@ -41,12 +48,10 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 	// Contar usuários
 	totalUsers, _ := h.db.DB.Collection("users").CountDocuments(ctx, bson.M{})
 
-	// Contar requests hoje
-	today := time.Now().Format("2006-01-02")
+	// Contar requests hoje (timezone Brasília)
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"date": today})
 
-	// Contar requests mês
-	startOfMonth := time.Now().Format("2006-01")
+	// Contar requests mês (timezone Brasília)
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"date": bson.M{"$regex": "^" + startOfMonth},
 	})
@@ -186,15 +191,20 @@ func (h *AdminHandler) GetUsage(c *gin.Context) {
 func (h *AdminHandler) GetAnalytics(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// ✅ FIX: Usar timezone Brasília (igual ao playground)
+	now := time.Now()
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	nowBrasilia := now.In(loc)
+	today := nowBrasilia.Format("2006-01-02")
+	startOfMonth := nowBrasilia.Format("2006-01")
+
 	// Total de requests
 	totalRequests, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{})
 
-	// Requests hoje
-	today := time.Now().Format("2006-01-02")
+	// Requests hoje (timezone Brasília)
 	requestsToday, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{"date": today})
 
-	// Requests este mês
-	startOfMonth := time.Now().Format("2006-01")
+	// Requests este mês (timezone Brasília)
 	requestsMonth, _ := h.db.DB.Collection("api_usage_logs").CountDocuments(ctx, bson.M{
 		"date": bson.M{"$regex": "^" + startOfMonth},
 	})

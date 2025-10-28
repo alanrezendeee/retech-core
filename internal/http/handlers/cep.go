@@ -584,8 +584,13 @@ func (h *CEPHandler) GetStats(c *gin.Context) {
 		"api_name": "cep",
 	})
 
-	// Consultas hoje
-	today := time.Now().Format("2006-01-02")
+	// ✅ FIX: Usar timezone Brasília (consistência)
+	now := time.Now()
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	nowBrasilia := now.In(loc)
+	today := nowBrasilia.Format("2006-01-02")
+	
+	// Consultas hoje (timezone Brasília)
 	today_count, _ := collection.CountDocuments(ctx, bson.M{
 		"api_name": "cep",
 		"date":     today,
