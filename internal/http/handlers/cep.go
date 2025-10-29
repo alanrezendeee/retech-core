@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/cache"
+	"github.com/theretech/retech-core/internal/config"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
@@ -468,11 +469,14 @@ func (h *CEPHandler) SearchCEP(c *gin.Context) {
 	})
 }
 
-// fetchViaCEP busca CEP no ViaCEP
+// fetchViaCEP busca CEP no ViaCEP (configurável via ENV)
 func (h *CEPHandler) fetchViaCEP(cep string) (*CEPResponse, error) {
-	url := fmt.Sprintf("https://viacep.com.br/ws/%s/json/", cep)
+	baseURL := config.GetCEPPrimaryURL()
+	url := fmt.Sprintf("%s/ws/%s/json/", baseURL, cep)
+	
+	fmt.Printf("🌐 [CEP] Primary: %s\n", baseURL)
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: config.GetCEPTimeout()}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -529,11 +533,14 @@ func (h *CEPHandler) fetchViaCEPByAddress(uf, cidade, logradouro string) ([]CEPR
 	return results, nil
 }
 
-// fetchBrasilAPI busca CEP no Brasil API
+// fetchBrasilAPI busca CEP no Brasil API (configurável via ENV)
 func (h *CEPHandler) fetchBrasilAPI(cep string) (*CEPResponse, error) {
-	url := fmt.Sprintf("https://brasilapi.com.br/api/cep/v1/%s", cep)
+	baseURL := config.GetCEPFallbackURL()
+	url := fmt.Sprintf("%s/api/cep/v1/%s", baseURL, cep)
+	
+	fmt.Printf("🔄 [CEP] Fallback: %s\n", baseURL)
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: config.GetCEPTimeout()}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err

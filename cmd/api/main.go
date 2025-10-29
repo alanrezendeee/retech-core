@@ -18,6 +18,9 @@ import (
 )
 
 func main() {
+	// Validar ENVs obrigatórias (falha rápido se não configuradas)
+	config.ValidateExternalAPIsConfig()
+	
 	cfg := config.Load()
 	log := observability.NewLogger(cfg.Env)
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/theretech/retech-core/internal/cache"
+	"github.com/theretech/retech-core/internal/config"
 	"github.com/theretech/retech-core/internal/domain"
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
@@ -182,16 +183,19 @@ func (h *CNPJHandler) GetCNPJ(c *gin.Context) {
 	})
 }
 
-// fetchBrasilAPI busca CNPJ na Brasil API
+// fetchBrasilAPI busca CNPJ na Brasil API (configurável via ENV)
 func (h *CNPJHandler) fetchBrasilAPI(ctx context.Context, cnpj string) (*domain.CNPJ, error) {
-	url := fmt.Sprintf("https://brasilapi.com.br/api/cnpj/v1/%s", cnpj)
+	baseURL := config.GetCNPJPrimaryURL()
+	url := fmt.Sprintf("%s/api/cnpj/v1/%s", baseURL, cnpj)
+	
+	fmt.Printf("🌐 [CNPJ] Primary: %s\n", baseURL)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: config.GetCNPJTimeout()}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -300,16 +304,19 @@ func (h *CNPJHandler) fetchBrasilAPI(ctx context.Context, cnpj string) (*domain.
 	return result, nil
 }
 
-// fetchReceitaWS busca CNPJ na ReceitaWS (fallback)
+// fetchReceitaWS busca CNPJ na ReceitaWS (fallback - configurável via ENV)
 func (h *CNPJHandler) fetchReceitaWS(ctx context.Context, cnpj string) (*domain.CNPJ, error) {
-	url := fmt.Sprintf("https://www.receitaws.com.br/v1/cnpj/%s", cnpj)
+	baseURL := config.GetCNPJFallbackURL()
+	url := fmt.Sprintf("%s/v1/cnpj/%s", baseURL, cnpj)
+	
+	fmt.Printf("🔄 [CNPJ] Fallback: %s\n", baseURL)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: config.GetCNPJTimeout()}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

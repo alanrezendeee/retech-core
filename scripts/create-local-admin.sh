@@ -21,11 +21,11 @@ db.tenants.insertOne({
 });
 
 // Criar usuário admin
-// Hash bcrypt de "admin123456": $2a$10$rK7YqP8qOqO5WZKxKxKxKOqO5WZKxKxKxKOqO5WZKxKxKxKOqO5WZ
+// Hash bcrypt de "admin123456" (gerado com bcrypt.DefaultCost)
 db.users.insertOne({
   "email": "alanrezendeee@gmail.com",
   "name": "Alan Leite",
-  "password": "$2a$10$N7YqP8qOqO5WZKxKxKxKOqO5WZKxKxKxKOqO5WZKxKxKxKOqO5WZ",
+  "password": "$2a$10$b3GJK12gSehRihTTUkEWNulhT4UgUKNfFMHDNYg6HkOSf..uoz.Ra",
   "role": "SUPER_ADMIN",
   "tenantId": "tenant-super-admin",
   "active": true,

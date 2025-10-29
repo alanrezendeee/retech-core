@@ -7,7 +7,7 @@ help: ## Mostrar ajuda
 	@echo ""
 
 admin: ## Criar Super Admin (alanrezendeee@gmail.com / admin123456)
-	@./scripts/quick-admin.sh
+	@./scripts/create-local-admin.sh
 
 up: ## Subir containers (API + MongoDB)
 	@docker-compose -f build/docker-compose.yml up -d
