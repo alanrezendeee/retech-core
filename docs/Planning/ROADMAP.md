@@ -1,7 +1,17 @@
 # 🚀 ROADMAP RETECH CORE API
 
-**Atualizado:** 27 de Outubro de 2025 🆕  
+**Atualizado:** 29 de Outubro de 2025 🆕  
 **Status:** Fase 1 Concluída ✅ | Fase 2 Em Andamento 🔵 (2/6 APIs - 33%) | Infraestrutura Avançada ✅
+
+---
+
+## 🔧 **PADRÃO ARQUITETURAL - LEIA ANTES DE IMPLEMENTAR NOVAS APIs** 🆕
+
+**REGRA:** ❌ **NUNCA hardcode URLs de APIs externas!**
+
+**Usar:** ✅ Variáveis de ambiente (ENV) obrigatórias
+
+**Template:** Ver seção "Checklist Nova API" (linha 1528) para implementação completa.
 
 ---
 
@@ -1524,6 +1534,49 @@ NODE_ENV=production
 - [ ] Documentação OpenAPI
 - [ ] Landing page (`/apis/nome`)
 - [ ] Adicionar no playground
+
+### **🔧 PADRÕES ARQUITETURAIS (Implementado 29/10/2025)** 🆕
+
+#### **PADRÃO 1: APIs Externas**
+❌ **Nunca** hardcode URLs de APIs externas  
+✅ **Sempre** usar ENV vars obrigatórias
+
+**Implementar:**
+1. Criar `Get{NOME}PrimaryURL()` em `config/apis.go` com panic se ENV vazia
+2. Adicionar validação em `config.ValidateExternalAPIsConfig()`
+3. Documentar ENVs em `env.example`
+4. Usar `config.Get{NOME}PrimaryURL()` no handler, nunca string literal
+5. Configurar ENVs no Railway antes do deploy
+
+**Sequência de fallback:** Cache Redis → Cache MongoDB → Primary URL (ENV) → Fallback URL (ENV) → Erro 404
+
+#### **PADRÃO 2: Cache Multi-Camada**
+Toda API externa deve ter cache duplo: Redis (L1 - 24h) + MongoDB (L2 - 7-30 dias)
+
+**Implementar:**
+1. Buscar Redis primeiro (return se hit)
+2. Buscar MongoDB segundo (promover para Redis se hit)
+3. Buscar API externa (salvar em ambos se sucesso)
+4. Retornar erro 404 apenas se todas falharem
+
+#### **PADRÃO 3: Scopes Granulares**
+Cada API deve ter scope específico (`cep`, `cnpj`, `geo`, etc), nunca genérico.
+
+**Implementar:**
+1. Adicionar scope em `auth/scope_middleware.go` no map `validScopes`
+2. Aplicar middleware `RequireScope()` nas rotas
+3. Documentar scope necessário no OpenAPI
+
+#### **PADRÃO 4: Configurações Dinâmicas**
+Settings editáveis via Admin devem estar em MongoDB (`system_settings`), não em ENV.
+
+**Usar ENV para:** URLs de APIs, secrets, infra  
+**Usar MongoDB para:** Rate limits, cache TTL, features toggles
+
+#### **PADRÃO 5: Fail-Fast**
+Validar configurações críticas no startup (`main.go`), não na primeira request.
+
+**Implementar:** Chamar `config.Validate{Feature}Config()` antes de `config.Load()`
 
 ---
 
