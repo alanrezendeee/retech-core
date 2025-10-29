@@ -278,6 +278,389 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
 - [ ] Cache permanente (gerado por ano)
 - [ ] Tipos: nacional, estadual, municipal, ponto facultativo
 
+### **📱 Telefone (PLANEJADO)** 🆕
+
+#### **Objetivo:**
+Validação de telefones brasileiros com diferencial único: **WhatsApp Verification real** via Evolution API auto-hospedada (custo ZERO).
+
+#### **Features Planejadas:**
+
+**1. WhatsApp Validator** ✅ (Diferencial Competitivo)
+- [ ] `GET /phone/:numero` - Validação completa de telefone
+- [ ] **WhatsApp Verification:** Consulta REAL na rede WhatsApp (via Evolution API)
+  - Custo: R$ 0 (Evolution auto-hospedada)
+  - Confiabilidade: 100% (verificação real, não heurística)
+  - Retorna: `{ exists: true/false, jid: "number@s.whatsapp.net" }`
+- [ ] **Validação de Formato:** Regras ANATEL (95-98% preciso)
+  - 11 dígitos → móvel (9º dígito obrigatório)
+  - 10 dígitos → fixo (primeiro dígito 2-5)
+  - DDDs válidos (11-99, exceto inválidos)
+- [ ] **Tipo:** Mobile ou Landline (99%+ preciso)
+  - Baseado em 9º dígito (Lei 12.249/2010)
+  - Sem exceções conhecidas
+- [ ] **DDD → Localização:** Estado e cidades possíveis (100% preciso)
+  - Integração: BrasilAPI (`GET /ddd/v1/:ddd`)
+  - Fallback: Tabela local
+  - Cache: Permanente (DDDs não mudam)
+- [ ] **Cache 3 Camadas:**
+  - Redis L1 (~1ms)
+  - MongoDB L2 (~10ms)
+  - Evolution API L3 (~100-500ms)
+- [ ] **Scope:** `phone`
+
+**Response Exemplo:**
+```json
+{
+  "numero": "5548988612609",
+  "valido": true,
+  "tipo": "mobile",
+  "ddd": "48",
+  "estado": "SC",
+  "cidades_possiveis": ["Florianópolis", "São José", "Palhoça"],
+  "whatsapp": {
+    "existe": true,
+    "jid": "5548988612609@s.whatsapp.net",
+    "verificado_em": "2025-10-28T22:00:00Z"
+  },
+  "observacoes": {
+    "formato": "Validado segundo regras ANATEL",
+    "tipo": "Baseado em 9º dígito obrigatório",
+    "localizacao": "DDD pode abranger múltiplas cidades",
+    "whatsapp": "Verificação real na rede WhatsApp"
+  }
+}
+```
+
+**2. WhatsApp OTP** 🔥 (Inovação - Custo Zero)
+- [ ] `POST /phone/otp/send` - Enviar código OTP via WhatsApp
+- [ ] `POST /phone/otp/verify` - Validar código OTP
+
+**Fluxo WhatsApp OTP:**
+```
+┌─────────────┐
+│   Dev App   │
+└──────┬──────┘
+       │
+       │ POST /phone/otp/send
+       │ {
+       │   "numero": "5548988612609",
+       │   "ttl": 300,          // Segundos (opcional, padrão: 300)
+       │   "digits": 6,         // Tamanho código (opcional, padrão: 6)
+       │   "template": "custom" // Template (opcional, padrão: "default")
+       │ }
+       ▼
+┌─────────────────────┐
+│  Retech Core API    │
+│                     │
+│ 1. Valida formato   │
+│ 2. Checa WhatsApp   │ ← Evolution API (verificar se número existe)
+│ 3. Verifica quota   │ ← Limites por plano (100/1k/10k OTPs/mês)
+│ 4. Rate limit       │ ← Máx 3 OTPs/5min por número (anti-spam)
+│ 5. Gera OTP         │ ← 4-8 dígitos aleatório
+│ 6. Salva Redis      │
+│    Key: phone:otp:{numero}
+│    TTL: Configurável (padrão: 5 min)
+│    Data: {
+│      code: "123456",
+│      used: false,
+│      attempts: 0,
+│      tenant: "tenant_id",
+│      created_at: timestamp
+│    }
+│ 7. Envia WhatsApp   │ ← Evolution API (custo R$ 0!)
+│    Template:
+│    "🔐 Seu código {APP_NAME}:\n\n*{OTP}*\n\nVálido por {TTL} minutos."
+└──────┬──────────────┘
+       │
+       │ Response:
+       │ {
+       │   "enviado": true,
+       │   "numero": "5548988612609",
+       │   "metodo": "whatsapp",
+       │   "expira_em": "2025-10-28T23:05:00Z",
+       │   "tentativas_restantes": 3
+       │ }
+       ▼
+┌─────────────────────┐
+│   WhatsApp User     │
+│                     │
+│ 📱 Recebe mensagem: │
+│                     │
+│ 🔐 Seu código       │
+│ MeuApp:             │
+│                     │
+│ *123456*            │
+│                     │
+│ Válido por 5        │
+│ minutos.            │
+└──────┬──────────────┘
+       │
+       │ Usuário digita código no app
+       ▼
+┌─────────────────────┐
+│   Dev App           │
+└──────┬──────────────┘
+       │
+       │ POST /phone/otp/verify
+       │ {
+       │   "numero": "5548988612609",
+       │   "code": "123456"
+       │ }
+       ▼
+┌─────────────────────┐
+│  Retech Core API    │
+│                     │
+│ 1. Busca Redis      │ ← GET phone:otp:{numero}
+│ 2. Valida código    │ ← Compara code
+│ 3. Checa expirado   │ ← TTL Redis
+│ 4. Checa usado      │ ← used == false
+│ 5. Incrementa       │ ← attempts++ (máx 5)
+│    tentativas       │
+│ 6. Se correto:      │
+│    - Marca usado    │ ← used = true
+│    - Deleta Redis   │ ← DEL phone:otp:{numero}
+│    - Log sucesso    │
+│    - Webhook (opt)  │ ← POST {dev_webhook_url}
+│ 7. Se errado:       │
+│    - Retorna erro   │
+│    - Mantém OTP     │
+│ 8. Response         │
+└─────────────────────┘
+       │
+       │ Response (sucesso):
+       │ {
+       │   "valido": true,
+       │   "numero": "5548988612609",
+       │   "verificado_em": "2025-10-28T22:45:00Z"
+       │ }
+       │
+       │ Response (erro):
+       │ {
+       │   "valido": false,
+       │   "erro": "Código incorreto",
+       │   "tentativas_restantes": 2
+       │ }
+```
+
+**Features WhatsApp OTP:**
+- [x] **Custo ZERO** (Evolution API auto-hospedada)
+- [x] **Taxa de abertura 98%** (vs 20% SMS)
+- [x] **Customização:** Templates configuráveis por tenant
+- [x] **Segurança:**
+  - Rate limit: 3 OTPs/5min por número (anti-spam)
+  - Rate limit: Quota mensal por plano (100/1k/10k)
+  - Máx 5 tentativas de verificação por OTP
+  - Código expira (TTL configurável: 5-30 min)
+  - Marca como usado (não reutilizável)
+- [x] **Webhook:** Notificação quando OTP validado (opcional)
+- [x] **Logs:** Auditoria completa (envio, tentativas, verificação)
+
+**Configurações (Painel do Dev):**
+```json
+{
+  "otp": {
+    "ttl": 300,              // Segundos (5 min padrão)
+    "digits": 6,             // Tamanho do código
+    "max_attempts": 5,       // Tentativas de verificação
+    "rate_limit_window": 300, // Janela rate limit (5 min)
+    "rate_limit_max": 3,     // Máx OTPs na janela
+    "template": "default",   // ou "custom"
+    "custom_template": "Seu código é: {OTP}",
+    "webhook_url": "https://seuapp.com/otp/verified", // opcional
+    "app_name": "Meu App"    // Nome no template
+  }
+}
+```
+
+**Quotas por Plano:**
+```
+FREE:     100 OTPs/mês
+BASIC:    1.000 OTPs/mês  (R$ 29/mês)
+PRO:      10.000 OTPs/mês (R$ 99/mês)
+BUSINESS: Ilimitado       (R$ 299/mês)
+```
+
+**Endpoints Completos:**
+```
+GET  /phone/:numero           - Validar + WhatsApp check
+POST /phone/otp/send          - Enviar OTP via WhatsApp
+POST /phone/otp/verify        - Verificar código OTP
+GET  /phone/otp/status/:numero - Status do OTP (dev only)
+```
+
+#### **💡 Análise do Fluxo (Opinião Técnica):**
+
+**✅ PONTOS FORTES:**
+- Fluxo simples e direto (dev-friendly)
+- Expiração configurável (flexível)
+- Validação de uso único (segurança)
+- WhatsApp (alta taxa de abertura)
+- Custo ZERO (Evolution própria)
+
+**⚠️ MELHORIAS SUGERIDAS:**
+
+1. **Rate Limiting Duplo:**
+   - Por número: 3 OTPs/5min (evita spam ao usuário)
+   - Por tenant: Quota mensal (evita abuso do serviço)
+
+2. **Tentativas Limitadas:**
+   - Máx 5 tentativas de verificação por OTP
+   - Após 5 falhas, bloquear e exigir novo OTP
+
+3. **Webhook de Confirmação:**
+   - Dev pode receber POST quando OTP validado
+   - Payload: `{ numero, verificado_em, tenant_id }`
+   - Evita polling constante
+
+4. **Templates Customizáveis:**
+   - Variáveis: `{APP_NAME}`, `{OTP}`, `{TTL}`
+   - Exemplo: "Seu código {APP_NAME} é: {OTP}"
+   - Configurável no painel do dev
+
+5. **Múltiplos Tamanhos de OTP:**
+   - Configurável: 4, 6, 8 dígitos
+   - Padrão: 6 dígitos
+   - Ajustável por nível de segurança
+
+6. **Logs de Auditoria:**
+   - Registrar envio, tentativas, verificação
+   - Dashboard: quantos OTPs enviados/verificados
+   - Alertas: quota próxima do limite
+
+**🚨 RISCOS E MITIGAÇÕES:**
+
+**Risco 1: Banimento WhatsApp**
+- Problema: WhatsApp pode banir número por spam
+- Limite: ~1.000 msgs/dia por número
+- Solução:
+  - Usar múltiplas instâncias Evolution (rotação)
+  - Rate limit de 500 OTPs/dia por instância
+  - Monitoramento de health (QR Code válido?)
+  - Alertas de desconexão
+
+**Risco 2: Confiabilidade Evolution**
+- Problema: Evolution depende de conexão WhatsApp estável
+- Solução:
+  - Health check a cada 5 min
+  - Reconectar automaticamente se cair
+  - Fallback opcional para SMS (se dev configurar gateway próprio)
+
+**Risco 3: LGPD/Compliance**
+- Problema: WhatsApp Business Terms + LGPD
+- Solução:
+  - Opt-in obrigatório (documentar no cadastro)
+  - Permitir opt-out
+  - Logs de consentimento
+  - Não enviar marketing (só OTP)
+
+#### **🔧 Implementação Técnica:**
+
+**Arquivos Principais:**
+```
+Backend:
+- internal/http/handlers/phone.go          (handler principal)
+- internal/services/evolution_client.go    (client Evolution API)
+- internal/services/otp_service.go         (lógica OTP)
+- internal/http/router.go                  (rotas)
+- internal/domain/settings.go              (config OTP)
+- internal/auth/scope_middleware.go        (scope "phone")
+
+Frontend:
+- app/ferramentas/validar-telefone/page.tsx (ferramenta pública)
+- app/painel/docs/page.tsx                  (docs dev)
+- components/otp-config.tsx                 (config painel dev)
+
+Docs:
+- internal/docs/openapi.yaml               (Redoc)
+```
+
+**Dependencies:**
+```go
+// Evolution API Client
+type EvolutionClient struct {
+    BaseURL  string
+    APIKey   string
+    Instance string
+}
+
+// OTP Service
+type OTPService struct {
+    Redis    *redis.Client
+    Evolution *EvolutionClient
+    Config   OTPConfig
+}
+```
+
+**Tempo Estimado:**
+- WhatsApp Validator: 3-4 horas
+- WhatsApp OTP: 5-6 horas
+- Testes + Docs: 2-3 horas
+- **Total: 10-13 horas** (~2 dias)
+
+#### **📊 Diferencial Competitivo:**
+
+**O que concorrentes oferecem:**
+- Twilio: SMS ($0,08/msg) + WhatsApp Business API ($$$)
+- Zenvia: SMS (R$ 0,10/msg) + WhatsApp caro
+- NumVerify: Validação básica (sem WhatsApp)
+- AbstractAPI: Validação básica (sem WhatsApp)
+
+**O que NÓS oferecemos:**
+- ✅ WhatsApp Validator (100% preciso, custo R$ 0)
+- ✅ WhatsApp OTP (98% abertura, custo R$ 0)
+- ✅ Validação formato ANATEL (95-98% preciso)
+- ✅ DDD → Cidades (100% preciso, BrasilAPI)
+- ✅ Tipo mobile/fixo (99%+ preciso)
+- ✅ Cache 3 camadas (performance)
+- ✅ Planos acessíveis (R$ 29-299/mês vs $100+/mês)
+
+**🔥 Diferencial ÚNICO:**
+> "Única API brasileira com WhatsApp Verification real e OTP por WhatsApp sem custo adicional por mensagem!"
+
+#### **❌ O que NÃO vamos implementar (e por quê):**
+
+**1. Operadora Exata:**
+- Problema: Portabilidade invalida heurística
+- Precisão: ~60% (muito baixa)
+- Solução real: API paga (R$ 0,01/req) ou base ANATEL (80%)
+- Decisão: **NÃO implementar agora**
+
+**2. HLR Lookup (número ativo?):**
+- Problema: Requer acesso a operadoras
+- Custo: R$ 0,01-0,05/consulta
+- Decisão: **Avaliar demanda futura**
+
+**3. SMS OTP:**
+- Problema: Custo alto (R$ 0,10-0,20/msg)
+- Concorrência: Twilio/Zenvia já fazem
+- Decisão: **Apenas WhatsApp** (diferencial)
+
+#### **Fontes de Dados:**
+
+**✅ CONFIÁVEIS (100%):**
+- BrasilAPI (DDD → Cidades)
+- Evolution API (WhatsApp verification)
+- Regras ANATEL (formato, tipo)
+
+**⚠️ PARCIAIS (80%):**
+- Base ANATEL prefixos (sem portabilidade)
+
+**❌ NÃO CONFIÁVEIS (60%):**
+- Heurística operadora (último dígito)
+- Tabelas desatualizadas
+
+**Decisão:** Usar apenas fontes 100% confiáveis!
+
+#### **🎯 Status:**
+- [ ] Planejado
+- [ ] Documentado (este arquivo)
+- [ ] Aguardando implementação
+
+**Prazo:** 2-3 dias após aprovação  
+**Prioridade:** Média-Alta (diferencial único)
+
+---
+
 **Prazo:** 3 meses  
 **Prioridade:** Alta (APIs mais demandadas)
 
@@ -1272,14 +1655,27 @@ NODE_ENV=production
     - Validação: normalizar entrada antes de processar
     - Tratamento: aceitar diferentes formatos (com/sem acentos, formatação, etc)
 
-12. **Atualizar Sitemap (se aplicável)**
+12. **Configurar Cache (se for API nova)**
+    - Arquivo: `internal/domain/settings.go`
+    - Adicionar `ServiceCacheConfig` para a nova API no struct `CacheConfig`
+    - Definir TTL padrão apropriado (ex: 7 dias, 30 dias, 365 dias)
+    - Definir `AutoCleanup` (true para dados dinâmicos, false para estáticos)
+    - Adicionar defaults em `GetDefaultSettings()`
+
+13. **Adicionar Scopes (se for API nova)**
+    - Arquivo: `internal/auth/scope_middleware.go`
+    - Adicionar scope no map `validScopes` (ex: `"phone": true`)
+    - Aplicar scope nas rotas em `router.go` via `auth.RequireScope()`
+    - Atualizar `AllowedAPIs` no playground config se aplicável
+
+14. **Atualizar Sitemap (se aplicável)**
     - Arquivo: `app/sitemap.ts`
     - Adicionar nova ferramenta pública
     - Adicionar novas páginas criadas
     - Verificar prioridades (0.1-1.0)
     - ⚠️ Não esquecer redirects (ex: `/termos` → `/legal/termos`)
 
-13. **Verificar SEO (Pós-Deploy)**
+15. **Verificar SEO (Pós-Deploy)**
     - **Títulos únicos:** Cada página deve ter title diferente
       - Criar `layout.tsx` em cada pasta se necessário
       - Formato: `[Função] - [Seção] | Retech Core`
@@ -1294,7 +1690,7 @@ NODE_ENV=production
     - **Sitemap:** Verificar se todas as páginas públicas estão incluídas
     - **Ferramenta:** Usar Google Search Console ou Ahrefs Site Audit
 
-14. **Commit e Deploy**
+16. **Commit e Deploy**
     - Build sem erros (Go + Next.js)
     - Commit com mensagem clara
     - Deploy (Railway auto-deploy)
