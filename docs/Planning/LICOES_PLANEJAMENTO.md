@@ -507,3 +507,4 @@ curl [url]
 **Última atualização:** 28 de Outubro de 2025  
 **Próxima revisão:** Antes de CADA nova API
 
+
