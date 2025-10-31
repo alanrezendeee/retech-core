@@ -1,17 +1,55 @@
 # 🚀 ROADMAP RETECH CORE API
 
-**Atualizado:** 29 de Outubro de 2025 🆕  
+**Atualizado:** 31 de Outubro de 2025 🆕  
 **Status:** Fase 1 Concluída ✅ | Fase 2 Em Andamento 🔵 (2/6 APIs - 33%) | Infraestrutura Avançada ✅
 
 ---
 
-## 🔧 **PADRÃO ARQUITETURAL - LEIA ANTES DE IMPLEMENTAR NOVAS APIs** 🆕
+## 🔍 **ÍNDICE DE TAGS - BUSCA RÁPIDA**
+
+**Ao implementar algo novo, busque por:**
+
+### 🏗️ **Nova API Completa:**
+- `#NOVA-API` - Checklist completo + backend + frontend
+- `#CHECKLIST-COMPLETO` - Checklist detalhado de implementação (linha 1975)
+- `#LEITURA-OBRIGATÓRIA` - Padrões arquiteturais obrigatórios (linha 8)
+
+### 🔧 **Nova Funcionalidade/Endpoint:**
+- `#FUNCIONALIDADE` - Checklist simplificado (linha 1657)
+- `#ENDPOINT` - Como adicionar endpoint em API existente
+- `#CHECKLIST-SIMPLIFICADO` - Checklist rápido para funcionalidades
+
+### 📚 **Referência e Boas Práticas:**
+- `#PADRÕES` - Padrões arquiteturais (linha 1598)
+- `#LIÇÕES` - Lições aprendidas (linha 1454)
+- `#DOCUMENTAÇÃO` - Como documentar no OpenAPI (linha 1936)
+- `#REFERÊNCIA` - Documentação de referência
+
+### 🎯 **Importante:**
+- `#IMPORTANTE` - Critérios e decisões importantes (linha 2438)
+- `#DECISÃO` - Como decidir entre Nova API vs Funcionalidade
+
+### 🛠️ **Por Tipo:**
+- `#BACKEND` - Checklist backend (linha 1571)
+- `#FRONTEND` - Checklist frontend (linha 1975)
+- `#OPENAPI` - Documentação Redoc
+
+---
+
+**🔎 Como usar:** `Ctrl+F` ou `Cmd+F` e busque pela tag (ex: `#NOVA-API`)
+
+---
+
+## 🔧 **PADRÃO ARQUITETURAL** 🆕
+### 📖 `#LEITURA-OBRIGATÓRIA` `#NOVA-API` `#FUNCIONALIDADE`
+
+> **⚠️ LEIA ANTES DE IMPLEMENTAR QUALQUER COISA!**
 
 **REGRA:** ❌ **NUNCA hardcode URLs de APIs externas!**
 
 **Usar:** ✅ Variáveis de ambiente (ENV) obrigatórias
 
-**Template:** Ver seção "Checklist Nova API" (linha 1528) para implementação completa.
+**Template:** Ver seção "Checklist Nova API" (linha 2079) para implementação completa.
 
 ---
 
@@ -39,16 +77,16 @@
 ## 📊 PROGRESSO GERAL
 
 ```
-██████░░░░░░░░░░░░░░░ 25% (9/36 APIs)
+██████░░░░░░░░░░░░░░░ 27% (10/37 APIs)
 
 Fase 1: ████████████ 100% ✅
-Fase 2: ████░░░░░░░░  33% 🔵 (2/6)
+Fase 2: █████░░░░░░░  43% 🔵 (3/7)
 Fase 3: ░░░░░░░░░░░░   0% ⚪ (0/17)
 Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
 ```
 
-**APIs Totais:** 36 (+5 novas: NF-e, CND, Compras Gov, Protestos, Score) 🆕  
-**Disponíveis:** 3 (Geografia + CEP + CNPJ) 🚀  
+**APIs Totais:** 37 (+6 novas: NF-e, CND, Compras Gov, Protestos, Score, Artigos Penais) 🆕  
+**Disponíveis:** 4 (Geografia + CEP + CNPJ + Artigos Penais) 🚀  
 **Em Desenvolvimento:** 4 (Fase 2)  
 **Planejadas:** 29
 
@@ -204,7 +242,7 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
 
 ## 🔵 FASE 2 - DADOS ESSENCIAIS (0-3 MESES)
 
-**Meta:** 6 APIs | **Status:** 2/6 Concluídas (33%)
+**Meta:** 7 APIs | **Status:** 3/7 Concluídas (43%)
 
 ### **📮 CEP (DISPONÍVEL)** ✅
 - [x] `GET /cep/:codigo` - Busca por CEP (CEP → Endereço)
@@ -287,6 +325,25 @@ Fase 4: ░░░░░░░░░░░░   0% ⚪ (0/7)
 - [ ] Fonte: Arquivo local + leis federais
 - [ ] Cache permanente (gerado por ano)
 - [ ] Tipos: nacional, estadual, municipal, ponto facultativo
+
+### **⚖️ Artigos Penais (DISPONÍVEL)** ✅ 🆕
+- [x] `GET /penal/artigos` - Lista artigos penais (autocomplete)
+- [x] `GET /penal/artigos/:codigo` - Busca artigo específico
+- [x] `GET /penal/search` - Busca por texto (descrição)
+- [x] `GET /public/penal/*` - Endpoints públicos para playground
+- [x] Fonte: Dados fixos (Código Penal + Lei de Contravenções)
+- [x] **Cache 3 Camadas:**
+  - [x] Redis L1 (~1ms) - Hot cache em memória (365 dias)
+  - [x] MongoDB L2 (~10ms) - Cache persistente (permanente)
+  - [x] Dados fixos (não muda)
+- [x] Estrutura hierárquica: Artigo → Parágrafo → Inciso → Alínea
+- [x] Tipos: Crime, Contravenção
+- [x] Legislações: CP (Código Penal), LCP (Lei de Contravenções)
+- [x] **Seed inicial:** `seeds/penal.json` com artigos mais comuns
+- [x] Performance: ~1ms (Redis) / ~10ms (MongoDB)
+- [x] **Uso:** Autocomplete/Select2 para seleção de crimes
+- [x] Scope: `penal` (controle granular de acesso)
+- [x] Índices MongoDB otimizados (codigo, busca, tipo, legislacao)
 
 ### **📱 Telefone (PLANEJADO)** 🆕
 
@@ -1023,6 +1080,28 @@ Performance com cache Redis + Servidor BR:
 
 ## 📝 ÚLTIMAS ATUALIZAÇÕES (Out/2025)
 
+### **📅 29 de Outubro de 2025** 🆕
+
+#### **⚖️ API de Artigos Penais (DISPONÍVEL)** ✅
+- **Nova API:** Artigos penais brasileiros (Código Penal + Lei de Contravenções)
+- **Endpoints:**
+  - `GET /penal/artigos` - Lista artigos (autocomplete/select2)
+  - `GET /penal/artigos/:codigo` - Busca artigo específico
+  - `GET /penal/search?q=texto` - Busca por texto
+- **Rotas públicas:** `/public/penal/*` para playground
+- **Estrutura hierárquica:** Artigo → Parágrafo → Inciso → Alínea
+- **Tipos:** Crime, Contravenção
+- **Legislações:** CP (Código Penal), LCP (Lei de Contravenções)
+- **Cache 3 camadas:**
+  - Redis L1 (~1ms) - 365 dias (dados fixos)
+  - MongoDB L2 (~10ms) - Permanente
+  - Dados fixos (não muda)
+- **Seed inicial:** `seeds/penal.json` com artigos mais comuns
+- **Uso principal:** Autocomplete/Select2 para seleção de crimes
+- **Scope:** `penal` (controle granular de acesso)
+- **Índices MongoDB:** codigo (unique), busca (text), tipo, legislacao
+- **Performance:** ~1ms (Redis) / ~10ms (MongoDB)
+
 ### **📅 28 de Outubro de 2025** 🆕
 
 #### **🔍 Busca Reversa de CEP (Endereço → CEP)** ✅
@@ -1407,6 +1486,9 @@ NODE_ENV=production
 ---
 
 ## 💡 **LIÇÕES APRENDIDAS**
+### 📚 `#REFERÊNCIA` `#BOAS-PRÁTICAS` `#LIÇÕES`
+
+> **💡 Leia para evitar erros comuns e aplicar melhores práticas!**
 
 ### **Performance**
 ✅ **Redis é essencial:** Reduz latência de 160ms → 1ms (160x)  
@@ -1524,18 +1606,36 @@ NODE_ENV=production
 6. PR para `main`
 
 ### **Checklist Nova API**
+### 🏗️ `#NOVA-API` `#BACKEND` `#CHECKLIST-BACKEND`
+
+> **⚠️ CHECKLIST PARA BACKEND! Para frontend completo, veja linha 1975.**
+
 - [ ] Handler com cache 3 camadas (Redis + MongoDB + Externa)
 - [ ] Validação de input
 - [ ] Normalização de dados
-- [ ] Scope específico (`nome`)
+- [ ] **Scope específico (`nome`)** 🆕
+  - [ ] Backend: `scope_middleware.go` → `validScopes`
+  - [ ] Frontend - API Keys: `apikey-drawer.tsx` → `availableScopes`
+  - [ ] Frontend - Settings: `admin/settings/page.tsx` → `allowedApis`
 - [ ] Rate limiting
 - [ ] Admin settings (toggle, TTL, stats, clear)
+- [ ] **Seed/Migration** (se dados fixos) 🆕
+  - [ ] Criar migration em `bootstrap/migrations.go`
+  - [ ] ⚠️ Seed roda automaticamente no startup (não precisa fazer nada manual)
 - [ ] Testes unitários
 - [ ] Documentação OpenAPI
-- [ ] Landing page (`/apis/nome`)
-- [ ] Adicionar no playground
+- [ ] **Landing page completa da API** (`/apis/nome`)
+  - [ ] `app/apis/[nome]/page.tsx` - Hero + Features + Code + FAQ
+  - [ ] `app/apis/[nome]/layout.tsx` - Metadata SEO completa
+  - [ ] Breadcrumbs Schema para SEO
+  - [ ] Adicionar no sitemap
+- [ ] Card na landing principal (`app/page.tsx`)
+- [ ] Adicionar no playground (se aplicável)
 
 ### **🔧 PADRÕES ARQUITETURAIS (Implementado 29/10/2025)** 🆕
+### 📖 `#LEITURA-OBRIGATÓRIA` `#PADRÕES` `#NOVA-API`
+
+> **⚠️ LEIA ANTES de implementar handlers com APIs externas!**
 
 #### **PADRÃO 1: APIs Externas**
 ❌ **Nunca** hardcode URLs de APIs externas  
@@ -1590,18 +1690,24 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
 
 **🚀 ROADMAP EM CONSTANTE EVOLUÇÃO!**
 
-**Última atualização:** 27 de Outubro de 2025  
+**Última atualização:** 31 de Outubro de 2025 🆕  
+**Revisão Maior:** Consolidado "Checklist Completo: Nova API" com todas as lições de Artigos Penais  
 **Próxima revisão:** 15 de Novembro de 2025 (após migração Oracle Cloud)
 
 **Juntos, construindo o futuro das APIs brasileiras! 🇧🇷**
 
 ---
 
-## 📋 **CHECKLIST PÓS-IMPLEMENTAÇÃO**
+## 📋 **CHECKLIST: NOVA FUNCIONALIDADE/ENDPOINT** 
+### 🔧 `#FUNCIONALIDADE` `#ENDPOINT` `#CHECKLIST-SIMPLIFICADO`
 
-**Após implementar uma nova funcionalidade ou API, siga esta lista para concluir a entrega:**
+> **⚠️ Para NOVA API COMPLETA, use o "CHECKLIST COMPLETO: NOVA API - IMPLEMENTAÇÃO FRONTEND" acima!**
 
-> 💡 **Baseado na implementação da "Busca Reversa de CEP"**
+**Após implementar uma nova funcionalidade ou endpoint em API existente:**
+
+> 💡 **Baseado na implementação da "Busca Reversa de CEP"**  
+> 💡 **Este checklist é para funcionalidades, não APIs novas!**  
+> ⚠️ **USE ESTE CHECKLIST ao adicionar endpoint em API existente!**
 
 ### **📝 O Que Fazer Após Implementar:**
 
@@ -1628,17 +1734,7 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
    - ✅ Dashboard `/admin/analytics` mostra automaticamente
    - ⚠️ **NADA precisa fazer** se middleware está aplicado!
 
-4. **Atualizar Landing Page**
-   - Arquivo: `app/page.tsx`
-   - Adicionar card na seção "APIs Disponíveis" (se for API nova)
-   - OU atualizar recursos do card existente (se for funcionalidade)
-
-5. **Criar Ferramenta Pública (se aplicável)**
-   - Criar `app/ferramentas/[nome]/page.tsx`
-   - Integrar com API Key demo do playground
-   - Adicionar badge "NOVO" se for recente
-
-6. **Playground - Avaliar se Faz Sentido Adicionar**
+4. **Playground - Avaliar se Faz Sentido Adicionar**
    
    **⚠️ NEM TUDO vai para o playground!**
    
@@ -1680,55 +1776,70 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
    Quantos inputs? → 3+ → ✅ Apenas FERRAMENTA (não playground)
    ```
 
-7. **Atualizar ROADMAP**
+5. **Atualizar ROADMAP**
    - Marcar endpoints como [x] concluído
    - Adicionar na seção "Últimas Atualizações" com data
    - ⚠️ Verificar se altera contador (Nova API vs Funcionalidade)
 
-8. **Testar Tudo**
+6. **Verificar Console (Frontend)** 🆕
+   - ⚠️ **Verificar erros de React Keys duplicadas**
+   - **Problema comum:** Duas chaves com mesmo `keyId` ou `key` não única
+   - **Solução:** Sempre usar `key` única em `.map()`:
+     - Preferir `item.id` se existir
+     - Se não, usar combinação: `${item.id || item.keyId}-${index}`
+     - Para arrays aninhados: `${parentId}-child-${index}-${childValue}`
+   - **Locais críticos:**
+     - Tabelas: `TableRow key={item.id || \`${item.keyId}-${index}\`}`
+     - Lists: `div key={item.id || index}`
+     - Badges dentro de array: `key={\`${parentId}-badge-${index}\`}`
+   - **Exemplo corrigido:**
+     ```typescript
+     // ❌ ERRADO: Pode ter duplicatas
+     {items.map((item) => <Row key={item.keyId} />)}
+     
+     // ✅ CORRETO: Sempre único
+     {items.map((item, index) => <Row key={item.id || `${item.keyId}-${index}`} />)}
+     
+     // ✅ CORRETO: Arrays aninhados
+     {items.map((item, i) => (
+       <div key={item.id || i}>
+         {item.scopes.map((scope, j) => (
+           <Badge key={`${item.id}-scope-${j}-${scope}`} />
+         ))}
+       </div>
+     ))}
+     ```
+   - **Verificar no console do navegador:**
+     - Abrir DevTools (F12)
+     - Verificar Console tab
+     - Procurar erros: "Encountered two children with the same key"
+     - Corrigir todos antes de commit
+
+7. **Testar Tudo**
    - Backend: endpoint funcionando, cache L1/L2/L3, validações
    - Frontend: ferramenta pública, playground (se foi adicionado)
    - Docs: Redoc e Painel Docs mostrando endpoint
    - Analytics: fazer 2-3 requests e verificar em `/admin/analytics`
    - Mobile: responsividade
+   - **Console:** Verificar que não há erros de keys duplicadas 🆕
 
-9. **Verificar Segurança**
+8. **Verificar Segurança**
    - API Key obrigatória
    - Scope correto aplicado
    - Rate limiting funcionando
    - Logs de usage salvando
 
-10. **Performance**
+9. **Performance**
     - Cache hit após 2ª request
     - Response time adequado
     - Graceful degradation (se Redis cair)
 
-11. **Melhorias no Código (se aplicável)**
+10. **Melhorias no Código (se aplicável)**
     - URL Encoding: usar `url.PathEscape()` ou `url.QueryEscape()` para parâmetros
     - Validação: normalizar entrada antes de processar
     - Tratamento: aceitar diferentes formatos (com/sem acentos, formatação, etc)
 
-12. **Configurar Cache (se for API nova)**
-    - Arquivo: `internal/domain/settings.go`
-    - Adicionar `ServiceCacheConfig` para a nova API no struct `CacheConfig`
-    - Definir TTL padrão apropriado (ex: 7 dias, 30 dias, 365 dias)
-    - Definir `AutoCleanup` (true para dados dinâmicos, false para estáticos)
-    - Adicionar defaults em `GetDefaultSettings()`
-
-13. **Adicionar Scopes (se for API nova)**
-    - Arquivo: `internal/auth/scope_middleware.go`
-    - Adicionar scope no map `validScopes` (ex: `"phone": true`)
-    - Aplicar scope nas rotas em `router.go` via `auth.RequireScope()`
-    - Atualizar `AllowedAPIs` no playground config se aplicável
-
-14. **Atualizar Sitemap (se aplicável)**
-    - Arquivo: `app/sitemap.ts`
-    - Adicionar nova ferramenta pública
-    - Adicionar novas páginas criadas
-    - Verificar prioridades (0.1-1.0)
-    - ⚠️ Não esquecer redirects (ex: `/termos` → `/legal/termos`)
-
-15. **Verificar SEO (Pós-Deploy)**
+11. **Verificar SEO (Pós-Deploy)**
     - **Títulos únicos:** Cada página deve ter title diferente
       - Criar `layout.tsx` em cada pasta se necessário
       - Formato: `[Função] - [Seção] | Retech Core`
@@ -1743,62 +1854,48 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
     - **Sitemap:** Verificar se todas as páginas públicas estão incluídas
     - **Ferramenta:** Usar Google Search Console ou Ahrefs Site Audit
 
-16. **Commit e Deploy**
-    - Build sem erros (Go + Next.js)
-    - Commit com mensagem clara
-    - Deploy (Railway auto-deploy)
-    - Smoke test em produção
+12. **Commit e Deploy**
+   - Build sem erros (Go + Next.js)
+   - Commit com mensagem clara
+   - Deploy (Railway auto-deploy)
+   - Smoke test em produção
 
 ---
 
-### **📦 Arquivos Comuns a Modificar:**
+### **📦 Arquivos Principais (Funcionalidades):**
 
 **Backend:**
-- `internal/http/handlers/[nome].go` - Handler principal
-- `internal/http/handlers/tenant.go` - GetMyConfig (docs do painel)
-- `internal/http/router.go` - Rotas (public + protected + admin)
-- `internal/domain/settings.go` - CacheConfig (se precisar)
-- `internal/bootstrap/indexes.go` - Indexes MongoDB (se precisar)
+- `internal/http/handlers/[nome].go` - Handler (novo endpoint)
+- `internal/http/handlers/tenant.go` - GetMyConfig (docs painel)
+- `internal/http/router.go` - Rotas (public + protected)
 
-**Frontend:**
-- `app/page.tsx` - Landing page (card da API)
-- `app/ferramentas/[nome]/page.tsx` - Ferramenta pública (novo)
-- `app/painel/docs/page.tsx` - Painel do dev (adicionar dicas se necessário)
-- `app/playground/page.tsx` - Playground (se aplicável)
-- `app/admin/settings/page.tsx` - Admin settings (se precisar)
+**Frontend (se aplicável):**
+- `app/ferramentas/[nome]/page.tsx` - Ferramenta pública (se criou)
+- `app/playground/page.tsx` - Playground (se adicionou)
 
 **Documentação:**
-- `internal/docs/openapi.yaml` - Redoc
-- `docs/Planning/ROADMAP.md` - Este arquivo
+- `internal/docs/openapi.yaml` - Redoc (novo endpoint)
+- `docs/Planning/ROADMAP.md` - Última atualização
 
 ---
 
-### **📝 Exemplo Real - Busca Reversa de CEP:**
+### **📝 Exemplo Real - Busca Reversa de CEP (Funcionalidade):**
 
-**Backend (3 arquivos modificados):**
-- `internal/http/handlers/cep.go` (+255 linhas - handler + url.PathEscape)
-- `internal/http/handlers/tenant.go` (+6 linhas - docs painel)
-- `internal/http/router.go` (+12 linhas - rotas)
+**Backend (3 arquivos):**
+- Handler (+255 linhas)
+- GetMyConfig (+6 linhas)
+- Router (+12 linhas)
 
-**Frontend (8 arquivos, 6 novos):**
-- 🆕 `app/ferramentas/buscar-cep/layout.tsx` (novo)
-- 🆕 `app/ferramentas/buscar-cep/page.tsx` (novo, 250 linhas)
-- 🆕 `app/painel/recuperar-senha/page.tsx` (novo, 120 linhas)
-- 🆕 `app/admin/recuperar-senha/page.tsx` (novo, 120 linhas)
-- 🆕 `app/privacidade/page.tsx` (redirect)
-- 🆕 `app/termos/page.tsx` (redirect)
-- ✏️ `app/page.tsx` (+95 linhas - card novo)
-- ✏️ `app/painel/docs/page.tsx` (+52 linhas - dicas de formatação)
-- ✏️ `app/sitemap.ts` (+50 linhas - novas páginas)
+**Frontend (1 arquivo novo):**
+- Ferramenta pública (+250 linhas)
 
 **Documentação (2 arquivos):**
-- ✏️ `internal/docs/openapi.yaml` (+220 linhas - com dicas de encoding)
-- ✏️ `docs/Planning/ROADMAP.md` (+200 linhas - checklist + boas práticas)
+- OpenAPI (+220 linhas)
+- ROADMAP (atualização)
 
-**Outros:**
-- 🆕 `public/llms.txt` (novo - para LLMs)
+**Total:** 6 arquivos | ~750 linhas | ~4 horas ⏱️
 
-**Total:** 14 arquivos | ~1.300 linhas | ~7 horas ⏱️
+> **💡 Para uma NOVA API completa, veja o exemplo da "API de Artigos Penais" no checklist acima!**
 
 ---
 
@@ -1871,6 +1968,9 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
 ---
 
 ### **📝 Boas Práticas de Documentação:**
+### 📚 `#REFERÊNCIA` `#DOCUMENTAÇÃO` `#OPENAPI`
+
+> **💡 Use estas práticas ao documentar endpoints no OpenAPI!**
 
 **Sempre documente para o desenvolvedor:**
 
@@ -1921,8 +2021,471 @@ Validar configurações críticas no startup (`main.go`), não na primeira reque
 
 ---
 
+## 📋 **CHECKLIST COMPLETO: NOVA API - IMPLEMENTAÇÃO FRONTEND** 🆕
+### 🏗️ `#NOVA-API` `#CHECKLIST-COMPLETO` `#FRONTEND`
+
+> **💡 Consolidado das lições aprendidas durante implementação de Artigos Penais**  
+> **Data:** 31 de Outubro de 2025  
+> **Objetivo:** Garantir que NADA seja esquecido ao criar uma nova API
+> 
+> ⚠️ **USE ESTE CHECKLIST ao implementar uma NOVA API!**
+
+### **🎯 Como Usar Este Checklist:**
+
+1. ✅ **Após implementar backend** (handlers, rotas, seeds, cache)
+2. ✅ **Execute TODOS os itens** desta lista
+3. ✅ **Marque cada item** como concluído
+4. ✅ **Teste visual completo** (Seção 10)
+5. ✅ **Verifique console browser** (zero erros)
+
+---
+
+### **1️⃣ LANDING PAGE DA API** (`/apis/[nome]`)
+
+#### **1.1. Criar Arquivos Obrigatórios:**
+- [ ] **`app/apis/[nome]/page.tsx`** - Landing page completa
+- [ ] **`app/apis/[nome]/layout.tsx`** - Metadata SEO completa
+
+#### **1.2. Estrutura da Landing Page:**
+- [ ] **Hero Section:**
+  - [ ] Título chamativo com nome da API
+  - [ ] Descrição clara e objetiva (1-2 frases)
+  - [ ] Badge de status ("Disponível", "NOVO", etc)
+  - [ ] 2 CTAs: "Consultar Grátis" + "Criar Conta (1.000 req/dia)"
+  - [ ] **NÃO adicionar "Testar no Playground"** (evitar redundância)
+
+- [ ] **Features (3-4 cards):**
+  - [ ] Ícones representativos
+  - [ ] Títulos curtos
+  - [ ] Descrições objetivas
+  - [ ] Destaque dos diferenciais
+
+- [ ] **Exemplos de Código:**
+  - [ ] Tabs: JavaScript, Python, PHP
+  - [ ] **URLs usando `apiBaseURL`** (NUNCA hardcoded!)
+  - [ ] Exemplos práticos e copy-paste ready
+  - [ ] Headers com API Key demo
+
+- [ ] **Casos de Uso (4 cards):**
+  - [ ] Título do caso de uso
+  - [ ] Descrição de aplicação real
+  - [ ] Público-alvo claro
+
+- [ ] **FAQ (Accordion com 4-6 perguntas):**
+  - [ ] Linguagem **comercial**, não técnica
+  - [ ] Evitar termos como "seed", "migration", "TTL"
+  - [ ] Focar em benefícios para o cliente
+  - [ ] Exemplo: "Os dados são atualizados?" → Falar de equipe, não de tecnologia
+
+- [ ] **Seção "Ferramenta Grátis"** (se aplicável):
+  - [ ] Card grande linkando para `/ferramentas/[nome]`
+  - [ ] Badge "✨ Teste Grátis"
+  - [ ] CTA: "Consultar Agora →"
+  - [ ] Texto: "⚡ Cache permanente • ✅ 100% Gratuito • 🎁 Sem cadastro"
+
+- [ ] **CTA Final:**
+  - [ ] Card com gradiente
+  - [ ] "Pronto para começar?"
+  - [ ] Botão: "Começar Grátis Agora"
+
+#### **1.3. Metadata SEO (layout.tsx):**
+- [ ] `title`: "API de [Nome] - [Descrição] | Retech Core"
+- [ ] `description`: Com keywords + benefícios (160 caracteres)
+- [ ] `keywords`: Array com 10-15 termos relevantes
+- [ ] `openGraph`: title, description, type, url, images
+- [ ] `twitter`: card, title, description, images
+- [ ] Canonical URL correto
+
+#### **1.4. SEO Schemas:**
+- [ ] `<BreadcrumbSchema>` com navegação
+- [ ] `<FAQSchema>` se houver FAQ
+
+#### **1.5. Verificações de Conteúdo:**
+- [ ] **URLs Dinâmicas:** TODAS usando `const apiBaseURL = process.env.NEXT_PUBLIC_API_URL`
+- [ ] **Tempos Realistas:** Evitar `~0.5ms`, `~1ms` (considerar latência de rede)
+  - [ ] Usar: `< 5ms` (Redis), `< 20ms` (MongoDB), `~160ms` (API externa)
+- [ ] **Transparência de Limites:**
+  - [ ] NUNCA "sem limites" ou "ilimitado" para ferramentas gratuitas
+  - [ ] Usar: "Gratuito", "Sem cadastro"
+  - [ ] Limites reais: "100 req/dia", "10 req/min"
+- [ ] **Terminologia Moderna:**
+  - [ ] "Autocomplete" ou "componentes de busca" (NÃO "Select2")
+- [ ] **Linguagem Cliente-Friendly:**
+  - [ ] FAQs sem jargão técnico
+  - [ ] Explicações comerciais, não de implementação
+
+#### **1.6. Referências:**
+- Ver: `app/apis/cep/page.tsx`
+- Ver: `app/apis/penal/page.tsx`
+
+---
+
+### **2️⃣ FERRAMENTA GRÁTIS** (`/ferramentas/[nome]`) - SE APLICÁVEL
+
+- [ ] **Criar:** `app/ferramentas/[nome]/page.tsx`
+- [ ] **Criar:** `app/ferramentas/[nome]/layout.tsx` (SEO)
+- [ ] **Input de consulta** + botão
+- [ ] **Exibir resultado completo** com formatação
+- [ ] **Suporte a URL parameter** (`?parametro=valor`) para pré-preencher
+- [ ] **SEO Schemas:** FAQSchema, BreadcrumbSchema
+- [ ] **Usar API Key demo** (`demoApiKey` do playground)
+- [ ] **Textos honestos:**
+  - [ ] "Gratuito" ✅
+  - [ ] "Sem cadastro" ✅
+  - [ ] "Sem limites" ❌ (NUNCA!)
+- [ ] **Exibir tempo de resposta real** (medido no client-side com `performance.now()`)
+- [ ] **Mensagens de erro** claras
+- [ ] **Ícones e badges** para visual
+
+---
+
+### **3️⃣ HOME PAGE** (`/`)
+
+#### **3.1. Seção "APIs Disponíveis":**
+- [ ] **Adicionar novo card:**
+  - [ ] Emoji representativo
+  - [ ] Título da API
+  - [ ] Descrição curta (1-2 linhas)
+  - [ ] Badge "Disponível" ou "NOVO"
+  - [ ] Link para `/apis/[nome]`
+- [ ] **Atualizar contagem total:**
+  - [ ] Ex: "36 APIs" → "37 APIs"
+  - [ ] Atualizar em TODOS os lugares (hero, stats, etc)
+
+#### **3.2. Seção "Comece a Usar Imediatamente":**
+- [ ] **Avaliar onde adicionar:**
+  - [ ] Card para `/apis/[nome]` (documentação) OU
+  - [ ] Card para `/ferramentas/[nome]` (ferramenta grátis)
+- [ ] **Layout responsivo:**
+  - [ ] Grid 2 colunas se houver 2+ cards relacionados
+  - [ ] Card limpo e elegante
+- [ ] **Link correto:**
+  - [ ] Ferramenta: `<Link href="/ferramentas/[nome]">`
+  - [ ] Documentação: `<Link href="/apis/[nome]">`
+
+#### **3.3. Seção "Planos e Preços":**
+- [ ] **USAR COMPONENTE:** `<PricingPlans variant="landing" />`
+- [ ] **NÃO duplicar código** dos planos inline!
+- [ ] **Verificar se componente está atualizado:**
+  - [ ] Plano Free: "4 APIs (CEP, CNPJ, Geografia, Penal)"
+  - [ ] Plano Pro: "Todas as APIs (sem premium)"
+  - [ ] Plano Business/Enterprise: "Todas as APIs + Premium"
+
+#### **3.4. Seção "Integração em Minutos":**
+- [ ] **Exemplos de código usando `apiBaseURL`:**
+  - [ ] JavaScript: `${apiBaseURL}/[endpoint]`
+  - [ ] Python: `${apiBaseURL}/[endpoint]`
+  - [ ] PHP: `${apiBaseURL}/[endpoint]`
+- [ ] **Botão "Ver Documentação Completa":**
+  - [ ] `href={`${apiBaseURL}/docs`}`
+
+#### **3.5. Footer:**
+- [ ] **Link "Documentação":**
+  - [ ] `href={`${apiBaseURL}/docs`}`
+  - [ ] NUNCA hardcoded!
+
+---
+
+### **4️⃣ PÁGINAS ADMINISTRATIVAS**
+
+#### **4.1. Página de Preços** (`/precos`):
+- [ ] **USAR COMPONENTE:** `<PricingPlans variant="page" />`
+- [ ] **NÃO duplicar código** dos planos inline!
+- [ ] **Seção "Status da Plataforma":**
+  - [ ] Adicionar nova API à lista (ex: "✅ API Penal: Operacional")
+
+#### **4.2. Página de Status** (`/status`):
+- [ ] **Atualizar contagem:**
+  - [ ] Ex: "3/36" → "4/37"
+- [ ] **Seção "APIs Principais":**
+  - [ ] Atualizar texto: "CEP, CNPJ, Geografia" → "CEP, CNPJ, Geografia, Penal"
+
+#### **4.3. Página de Registro** (`/painel/register`):
+- [ ] **Seção "Plano Free incluso":**
+  - [ ] "1.000 requisições/dia" ✅
+  - [ ] "4 APIs (CEP, CNPJ, Geografia, Penal)" ✅
+  - [ ] "Cache 3 camadas + Dashboard" ✅
+  - [ ] "Documentação completa" ✅
+  - [ ] "Sem cartão de crédito" ✅
+
+#### **4.4. Admin Settings** (`/admin/settings`):
+- [ ] **Playground - allowedApis:**
+  - [ ] Adicionar scope: `allowedApis: ['cep', 'cnpj', 'geo', 'penal']`
+- [ ] **Playground - Lista de APIs:**
+  - [ ] Adicionar no `.map()`: `{['cep', 'cnpj', 'geo', 'penal'].map(...)}`
+- [ ] **Cache Config:**
+  - [ ] Adicionar `penal?: { enabled, ttlDays, autoCleanup }` (se aplicável)
+  - [ ] Normalização de dados ao carregar
+  - [ ] Valores padrão no estado inicial
+- [ ] **Redis Stats:**
+  - [ ] Adicionar contagem: `penalKeys` em `loadRedisStats()`
+  - [ ] Exibir: "└─ ⚖️ PENAL: {penalKeys} keys"
+- [ ] **Cache Stats Endpoint:**
+  - [ ] Se tiver cache, carregar stats: `loadPenalCacheStats()`
+- [ ] **Limpeza Redis:**
+  - [ ] Incluir nova API na confirmação de limpeza
+
+#### **4.5. API Keys Drawer** (`components/apikeys/apikey-drawer.tsx`):
+- [ ] **Adicionar scope:**
+  - [ ] Array `availableScopes`:
+    ```typescript
+    { value: 'penal', label: '⚖️ PENAL - Artigos penais (Código Penal)' }
+    ```
+
+---
+
+### **5️⃣ PÁGINAS LEGAIS**
+
+#### **5.1. Termos de Uso** (`/legal/termos`):
+- [ ] **Seção "Uso Permitido":**
+  - [ ] Adicionar API: "Consultas a dados públicos (CEP, CNPJ, Geografia, Artigos Penais)"
+- [ ] **Seção "Fontes de Dados":**
+  - [ ] Adicionar fonte (se aplicável): "Legislação Brasileira"
+- [ ] **Seção "Dados Atualizados":**
+  - [ ] Explicar política de cache/TTL
+  - [ ] Ex: "Artigos Penais são permanentes (alterados apenas quando legislação muda)"
+- [ ] **Seção "Dados Públicos":**
+  - [ ] Adicionar à lista: "Artigos Penais"
+
+#### **5.2. Política de Privacidade** (`/legal/privacidade`):
+- [ ] **Seção "Dados NÃO Coletados":**
+  - [ ] "CEPs, CNPJs, ou Artigos Penais que você consultou"
+- [ ] **Seção "Como Funciona o Cache":**
+  - [ ] Explicar TTL da nova API
+  - [ ] Ex: "7 dias para CEP, 30 dias para CNPJ, permanente para Artigos Penais"
+
+---
+
+### **6️⃣ PLAYGROUND**
+
+- [ ] **Avaliar se faz sentido adicionar:**
+  - [ ] ✅ Adicionar SE: funcionalidade CORE, input simples (1-2 campos), foco em devs
+  - [ ] ❌ NÃO adicionar SE: já tem ferramenta dedicada, input complexo (3+ campos), foco em usuários finais
+- [ ] **Se adicionar:**
+  - [ ] Adicionar API à lista com endpoints de exemplo
+  - [ ] Garantir que `?api=penal` pré-seleciona a API
+  - [ ] **Playground deve defaultar para CEP** se nenhum parâmetro fornecido
+
+---
+
+### **7️⃣ DOCUMENTAÇÃO (REDOC)**
+
+#### **7.1. OpenAPI YAML** (`internal/docs/openapi.yaml`):
+- [ ] **Criar nova tag:**
+  - [ ] Nome da API com emoji
+- [ ] **Documentar TODOS os endpoints:**
+  - [ ] `GET`, `POST`, etc
+  - [ ] Parâmetros com tipos e validações
+  - [ ] Responses (200, 400, 404, 500)
+  - [ ] Exemplos de request/response
+- [ ] **Schemas (request/response):**
+  - [ ] Definir na seção `components/schemas`
+  - [ ] Referenciar: `$ref: '#/components/schemas/ArtigoPenal'`
+- [ ] **Seção "Uso Típico (Autocomplete)":**
+  - [ ] **SEMPRE usar `__API_BASE_URL__`** (nunca hardcode!)
+  - [ ] Exemplo de fetch/axios
+- [ ] **⚠️ CUIDADOS:**
+  - [ ] **Evitar acentos** em `description` (podem quebrar parser)
+  - [ ] **Enum multi-line:**
+    ```yaml
+    enum:
+      - crime
+      - contravencao
+    ```
+  - [ ] Não usar enum inline: `enum: [crime, contravencao]` ❌
+
+---
+
+### **8️⃣ SEO E SITEMAP**
+
+#### **8.1. Sitemap** (`app/sitemap.ts`):
+- [ ] **Adicionar URL `/apis/[nome]`:**
+  - [ ] `url: 'https://core.theretech.com.br/apis/penal'`
+  - [ ] `changeFrequency: 'monthly'`
+  - [ ] `priority: 0.8`
+- [ ] **Adicionar ferramenta** (se criou):
+  - [ ] `url: 'https://core.theretech.com.br/ferramentas/penal'`
+  - [ ] `changeFrequency: 'weekly'`
+  - [ ] `priority: 0.7`
+
+---
+
+### **9️⃣ BACKEND COMPLEMENTOS**
+
+#### **9.1. Cache Stats Endpoint:**
+- [ ] **Criar:** `GET /admin/cache/[nome]/stats`
+- [ ] **Handler:** `[nome]Handler.GetCacheStats()`
+- [ ] **Retornar:**
+  - [ ] `totalCached` (total de registros)
+  - [ ] `recentCached` (últimas 24h)
+  - [ ] `cacheEnabled` (bool)
+  - [ ] `cacheTTLDays` (número)
+  - [ ] `autoCleanup` (bool)
+
+#### **9.2. Redis Monitoring:**
+- [ ] **Arquivo:** `internal/http/handlers/redis_stats.go`
+- [ ] **GetStats:**
+  - [ ] Adicionar: `penalKeys, _ := redisClient.Keys(ctx, "penal:*")`
+  - [ ] Incluir em `totalKeys`
+  - [ ] Retornar: `"penalKeys": len(penalKeys)`
+
+---
+
+### **🔟 CHECKLIST PÓS-IMPLEMENTAÇÃO**
+
+#### **10.1. Teste Visual Completo:**
+- [ ] `http://localhost:3000/` (home - TODAS as seções!)
+- [ ] `http://localhost:3000/apis/[nome]` (landing page)
+- [ ] `http://localhost:3000/ferramentas/[nome]` (ferramenta grátis)
+- [ ] `http://localhost:3000/playground?api=[nome]` (se adicionou)
+- [ ] `http://localhost:3000/precos` (planos atualizados)
+- [ ] `http://localhost:3000/status` (contagem atualizada)
+- [ ] `http://localhost:3000/painel/register` (plano free)
+- [ ] `http://localhost:3000/admin/settings` (scope + cache)
+- [ ] `http://localhost:3000/admin/apikeys` (scope disponível)
+- [ ] `http://localhost:3000/legal/termos` (API mencionada)
+- [ ] `http://localhost:3000/legal/privacidade` (API mencionada)
+- [ ] `http://localhost:8080/docs` (Redoc atualizado)
+
+#### **10.2. Teste Console Browser:**
+- [ ] **Abrir DevTools (F12)**
+- [ ] **Verificar Console tab**
+- [ ] **Zero erros de React keys:**
+  - [ ] "Encountered two children with the same key" ❌
+  - [ ] Se houver, corrigir com `key` única:
+    ```typescript
+    // ❌ ERRADO
+    {items.map(item => <Row key={item.keyId} />)}
+    
+    // ✅ CORRETO
+    {items.map((item, i) => <Row key={item.id || `${item.keyId}-${i}`} />)}
+    ```
+- [ ] **Zero warnings desnecessários**
+- [ ] **Teste em múltiplas páginas** (home, admin, painel)
+
+#### **10.3. Teste de URLs Dinâmicas:**
+- [ ] **Todas as URLs refletem `NEXT_PUBLIC_API_URL`:**
+  - [ ] Exemplos de código na landing page
+  - [ ] Botões "Ver Documentação"
+  - [ ] Links no footer
+  - [ ] Ferramenta grátis (fetch calls)
+- [ ] **Testar mudando env:** `NEXT_PUBLIC_API_URL=http://localhost:8080`
+- [ ] **Verificar que NENHUMA URL está hardcoded**
+
+#### **10.4. Teste Funcional:**
+- [ ] **Backend:** Endpoint funcionando, cache L1/L2/L3
+- [ ] **Frontend:** Ferramenta pública funcional
+- [ ] **Playground:** Seleção e teste da API (se adicionou)
+- [ ] **Docs:** Redoc mostrando endpoint
+- [ ] **Analytics:** Fazer 2-3 requests e verificar em `/admin/analytics`
+- [ ] **Mobile:** Responsividade
+
+#### **10.5. Verificar Segurança:**
+- [ ] API Key obrigatória
+- [ ] Scope correto aplicado
+- [ ] Rate limiting funcionando
+- [ ] Logs de usage salvando
+
+#### **10.6. Performance:**
+- [ ] Cache hit após 2ª request
+- [ ] Response time adequado
+- [ ] Graceful degradation (se Redis cair)
+
+---
+
+### **📦 ARQUIVOS PRINCIPAIS A MODIFICAR**
+
+#### **Frontend:**
+- `app/apis/[nome]/page.tsx` ← NOVA API (landing)
+- `app/apis/[nome]/layout.tsx` ← NOVA API (SEO)
+- `app/ferramentas/[nome]/page.tsx` ← Ferramenta grátis
+- `app/page.tsx` ← Home (5+ seções!)
+- `app/precos/page.tsx` ← Preços (usar componente)
+- `app/status/page.tsx` ← Status (contagem)
+- `app/painel/register/page.tsx` ← Registro (plano free)
+- `app/admin/settings/page.tsx` ← Admin (scopes, cache, Redis)
+- `app/admin/apikeys/page.tsx` ← Verificar keys (se houver erros)
+- `components/apikeys/apikey-drawer.tsx` ← Scopes
+- `components/pricing/PricingPlans.tsx` ← Planos (verificar se atualizado)
+- `app/legal/termos/page.tsx` ← Termos
+- `app/legal/privacidade/page.tsx` ← Privacidade
+- `app/sitemap.ts` ← Sitemap
+
+#### **Backend:**
+- `internal/http/handlers/[nome].go` ← Handler principal
+- `internal/http/handlers/redis_stats.go` ← Redis monitoring
+- `internal/http/router.go` ← Rotas (public + protected + admin)
+- `internal/auth/scope_middleware.go` ← Scopes
+- `internal/domain/settings.go` ← Cache config (se aplicável)
+
+#### **Documentação:**
+- `internal/docs/openapi.yaml` ← Redoc
+- `docs/Planning/ROADMAP.md` ← Este arquivo
+
+---
+
+### **⚠️ ARMADILHAS COMUNS**
+
+#### **❌ O QUE EVITAR:**
+
+1. **URLs Hardcoded:**
+   - ❌ `https://api-core.theretech.com.br`
+   - ✅ `process.env.NEXT_PUBLIC_API_URL`
+
+2. **Tempos Irrealistas:**
+   - ❌ "~0.5ms", "~1ms" (ignora latência de rede)
+   - ✅ "< 5ms" (Redis), "< 20ms" (MongoDB)
+
+3. **Promessas Falsas:**
+   - ❌ "Sem limites", "Ilimitado" (para ferramentas gratuitas)
+   - ✅ "Gratuito", "Sem cadastro"
+
+4. **Terminologia Desatualizada:**
+   - ❌ "Select2" (jQuery plugin antigo)
+   - ✅ "Autocomplete", "Componentes de busca"
+
+5. **Jargão Técnico em FAQs:**
+   - ❌ "Seed", "Migration", "TTL", "Cache L1/L2"
+   - ✅ "Nossa equipe atualiza", "Dados ficam disponíveis"
+
+6. **Duplicação de Código:**
+   - ❌ Copiar/colar cards de planos em múltiplas páginas
+   - ✅ Usar `<PricingPlans />` component
+
+7. **React Keys Duplicadas:**
+   - ❌ `key={item.keyId}` (pode ter duplicatas)
+   - ✅ `key={item.id || `${item.keyId}-${index}`}`
+
+8. **Acentos em OpenAPI:**
+   - ❌ `description: "Código do artigo"`
+   - ✅ `description: "Codigo do artigo"` (sem acento)
+
+9. **Esquecer de Atualizar:**
+   - ❌ Atualizar apenas home, esquecer preços/status/termos
+   - ✅ Seguir checklist completo (todas as 10 seções!)
+
+---
+
+### **✅ CONCLUSÃO**
+
+Este checklist consolida **TUDO** que aprendemos durante a implementação da API de Artigos Penais. 
+
+**Tempo estimado:** 4-6 horas para frontend completo de uma nova API.
+
+**Resultado esperado:** Zero esquecimentos, zero erros, 100% consistente!
+
+---
+
+**Última atualização:** 31 de Outubro de 2025  
+**Revisado e aprovado:** ✅
+
+---
+
 
 ## ⚠️ **CRITÉRIO DE CONTAGEM: NOVA API vs FUNCIONALIDADE**
+### 🎯 `#IMPORTANTE` `#NOVA-API` `#FUNCIONALIDADE` `#DECISÃO`
+
+> **⚠️ LEIA ANTES de atualizar contador na landing page!**
 
 **Use este guia para decidir se atualiza o contador da landing page:**
 
@@ -1991,7 +2554,8 @@ Depois: 25% (9/36 APIs) ← NÃO MUDA!
 
 ---
 
-**Última atualização:** 28 de Outubro de 2025  
+**Última atualização:** 31 de Outubro de 2025 🆕  
+**Revisão Maior:** Consolidado "Checklist Completo: Nova API"  
 **Próxima revisão:** 15 de Novembro de 2025
 
 **Juntos, construindo o futuro das APIs brasileiras! 🇧🇷**

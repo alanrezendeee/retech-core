@@ -100,6 +100,7 @@ func ValidateAPIKeyScopes(scopes []string) error {
 		"geo":   true,
 		"cep":   true,
 		"cnpj":  true,
+		"penal": true, // ✅ NOVO: API de Artigos Penais
 		"all":   true,
 		// Futuros:
 		"cpf":    false, // ainda não implementado

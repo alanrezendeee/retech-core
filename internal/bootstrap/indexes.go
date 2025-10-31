@@ -199,6 +199,38 @@ func CreateIndexes(ctx context.Context, db *mongo.Database, log zerolog.Logger) 
 		return err
 	}
 
+	// ✅ PERFORMANCE: Índices para penal_artigos (dados fixos, cache permanente)
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys:    bson.D{{Key: "codigo", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}, "codigo_unique"); err != nil {
+		return err
+	}
+
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys: bson.D{{Key: "artigo", Value: 1}, {Key: "paragrafo", Value: 1}},
+	}, "artigo_paragrafo"); err != nil {
+		return err
+	}
+
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys: bson.D{{Key: "busca", Value: 1}},
+	}, "busca_text"); err != nil {
+		return err
+	}
+
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys: bson.D{{Key: "tipo", Value: 1}},
+	}, "tipo"); err != nil {
+		return err
+	}
+
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys: bson.D{{Key: "legislacao", Value: 1}},
+	}, "legislacao"); err != nil {
+		return err
+	}
+
 	// ✅ PERFORMANCE: Índice para tenant_id (hot path - rate limiting)
 	if err := createIndex("rate_limits", mongo.IndexModel{
 		Keys: bson.D{{Key: "tenantId", Value: 1}, {Key: "resetAt", Value: 1}},

@@ -70,8 +70,9 @@ type CacheConfig struct {
 	AutoCleanup  bool `bson:"autoCleanup,omitempty" json:"autoCleanup,omitempty"`
 	
 	// ✅ NOVO: Controles independentes por serviço
-	CEP  ServiceCacheConfig `bson:"cep" json:"cep"`
-	CNPJ ServiceCacheConfig `bson:"cnpj" json:"cnpj"`
+	CEP   ServiceCacheConfig `bson:"cep" json:"cep"`
+	CNPJ  ServiceCacheConfig `bson:"cnpj" json:"cnpj"`
+	Penal ServiceCacheConfig `bson:"penal" json:"penal"`
 }
 
 // ServiceCacheConfig define configuração de cache para um serviço específico
@@ -140,6 +141,11 @@ func GetDefaultSettings() *SystemSettings {
 				Enabled:     true, // Cache CNPJ habilitado
 				TTLDays:     30,   // 30 dias (empresas não mudam frequentemente)
 				AutoCleanup: true, // Limpeza automática ativa
+			},
+			Penal: ServiceCacheConfig{
+				Enabled:     true,  // Cache Penal habilitado
+				TTLDays:     365,   // 365 dias (dados fixos - permanentes)
+				AutoCleanup: false, // Não limpa automaticamente (dados fixos)
 			},
 		},
 		Playground: PlaygroundConfig{

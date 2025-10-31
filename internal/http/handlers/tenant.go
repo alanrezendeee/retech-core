@@ -416,6 +416,29 @@ func (h *TenantHandler) GetMyConfig(c *gin.Context) {
 					},
 				},
 			},
+			{
+				"category": "Artigos Penais",
+				"items": []gin.H{
+					{
+						"method":      "GET",
+						"path":        "/penal/artigos",
+						"description": "🆕 Lista artigos penais (autocomplete/Select2). Filtros: q (busca), tipo (crime/contravencao), legislacao (CP/LCP)",
+						"available":   true,
+					},
+					{
+						"method":      "GET",
+						"path":        "/penal/artigos/:codigo",
+						"description": "🆕 Busca artigo específico por código (ex: 121, 121.1, 121.1.I)",
+						"available":   true,
+					},
+					{
+						"method":      "GET",
+						"path":        "/penal/search",
+						"description": "🆕 Busca artigos por texto (descrição ou texto completo). Ideal para busca inteligente",
+						"available":   true,
+					},
+				},
+			},
 		},
 	})
 }

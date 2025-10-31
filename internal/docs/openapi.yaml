@@ -55,6 +55,8 @@ tags:
     description: Consulta de CNPJ com dados da Receita Federal
   - name: Geografia
     description: Estados, municípios e dados geográficos do Brasil
+  - name: Artigos Penais
+    description: Artigos penais brasileiros (Codigo Penal + legislacoes especiais)
 
 paths:
   # ==========================================
@@ -684,6 +686,348 @@ paths:
                     items:
                       $ref: '#/components/schemas/Municipio'
 
+  # ==========================================
+  # ARTIGOS PENAIS
+  # ==========================================
+  /penal/artigos:
+    get:
+      tags: [Artigos Penais]
+      summary: Listar Artigos Penais (Autocomplete)
+      description: |
+        Retorna todos os artigos penais brasileiros, ideal para autocomplete/Select2.
+        
+        **Fontes de Dados:**
+        - 💾 **Dados fixos** (seed inicial no MongoDB)
+        - 🥇 **Cache Redis** (permanente - ~1ms)
+        - 🥈 **MongoDB** (~10ms se cache miss)
+        
+        **Performance:**
+        - Cache Redis: ~1ms
+        - MongoDB: ~10ms
+        - Dados fixos (não expira)
+        
+        **Filtros Disponíveis:**
+        - `q` (opcional): Busca por texto na descricao
+        - `tipo` (opcional): Filtrar por tipo (`crime` ou `contravencao`)
+        - `legislacao` (opcional): Filtrar por legislacao (`CP`, `LCP`, `Lei 11.343/2006`, etc)
+        
+        **Uso tipico (Autocomplete/Select2):**
+        ```javascript
+        // React Select / Select2
+        fetch('__API_BASE_URL__/penal/artigos?q=homicidio', {
+          headers: { 'X-API-Key': 'sua_chave' }
+        })
+        .then(res => res.json())
+        .then(data => {
+          // data.data contem array de artigos
+          const options = data.data.map(a => ({
+            value: a.codigo,
+            label: a.codigoFormatado + ' - ' + a.descricao
+          }));
+        });
+        ```
+        
+        **Exemplo de uso:**
+        ```bash
+        # Listar todos os artigos
+        curl __API_BASE_URL__/penal/artigos \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Buscar artigos de homicídio
+        curl "__API_BASE_URL__/penal/artigos?q=homicidio" \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Filtrar apenas crimes do CP
+        curl "__API_BASE_URL__/penal/artigos?tipo=crime&legislacao=CP" \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: "Busca por texto (descricao, codigo, texto completo)"
+          schema:
+            type: string
+            example: "homicidio"
+        - name: tipo
+          in: query
+          required: false
+          description: "Filtrar por tipo: crime ou contravencao"
+          schema:
+            type: string
+            enum: [crime, contravencao]
+            example: "crime"
+        - name: legislacao
+          in: query
+          required: false
+          description: "Filtrar por legislacao: CP, LCP, Lei 11.343/2006, etc"
+          schema:
+            type: string
+            example: "CP"
+      responses:
+        '200':
+          description: Lista de artigos penais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  code:
+                    type: string
+                    example: "OK"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtigoPenal'
+              examples:
+                todos_artigos:
+                  summary: "Todos os artigos (sem filtros)"
+                  value:
+                    success: true
+                    code: "OK"
+                    data:
+                      - codigo: "121"
+                        codigoFormatado: "Art. 121 do CP"
+                        descricao: "Homicídio simples"
+                        tipo: "crime"
+                        legislacao: "CP"
+                        legislacaoNome: "Codigo Penal"
+                      - codigo: "121.1"
+                        codigoFormatado: "Art. 121, § 1º do CP"
+                        descricao: "Homicídio qualificado"
+                        tipo: "crime"
+                        legislacao: "CP"
+                        legislacaoNome: "Codigo Penal"
+                busca_texto:
+                  summary: "Busca por texto (q=homicidio)"
+                  value:
+                    success: true
+                    code: "OK"
+                    data:
+                      - codigo: "121"
+                        codigoFormatado: "Art. 121 do CP"
+                        descricao: "Homicídio simples"
+                        tipo: "crime"
+                        legislacao: "CP"
+                        legislacaoNome: "Codigo Penal"
+                      - codigo: "121.1"
+                        codigoFormatado: "Art. 121, § 1º do CP"
+                        descricao: "Homicídio qualificado"
+                        tipo: "crime"
+                        legislacao: "CP"
+                        legislacaoNome: "Codigo Penal"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
+
+  /penal/artigos/{codigo}:
+    get:
+      tags: [Artigos Penais]
+      summary: Buscar Artigo Penal Específico
+      description: |
+        Retorna detalhes completos de um artigo penal especifico pelo codigo.
+
+        **Formato do codigo:**
+        - Artigo simples: `121`
+        - Com parágrafo: `121.1` (Art. 121, § 1º)
+        - Com inciso: `121.1.I` (Art. 121, § 1º, I)
+        - Com alínea: `121.1.I.a` (Art. 121, § 1º, I, a)
+        
+        **Performance:**
+        - Cache Redis: ~1ms
+        - MongoDB: ~10ms
+        - Dados fixos (não expira)
+        
+        **Exemplo de uso:**
+        ```bash
+        # Buscar artigo 121 (homicídio simples)
+        curl __API_BASE_URL__/penal/artigos/121 \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Buscar parágrafo 1º do artigo 121
+        curl __API_BASE_URL__/penal/artigos/121.1 \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Buscar inciso I do parágrafo 1º do artigo 121
+        curl __API_BASE_URL__/penal/artigos/121.1.I \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          description: "Codigo do artigo (ex: 121, 121.1, 121.1.I, 121.1.I.a)"
+          schema:
+            type: string
+            example: "121"
+      responses:
+        '200':
+          description: Artigo encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  code:
+                    type: string
+                    example: "OK"
+                  data:
+                    $ref: '#/components/schemas/ArtigoPenalCompleto'
+              examples:
+                homicidio_simples:
+                  summary: "Art. 121 - Homicídio simples"
+                  value:
+                    success: true
+                    code: "OK"
+                    data:
+                      codigo: "121"
+                      codigoFormatado: "Art. 121 do CP"
+                      artigo: 121
+                      descricao: "Homicídio simples"
+                      textoCompleto: "Matar alguém:\nPena - reclusão, de 6 (seis) a 20 (vinte) anos."
+                      tipo: "crime"
+                      legislacao: "CP"
+                      legislacaoNome: "Código Penal"
+                      penaMin: "Reclusão, de 6 a 20 anos"
+                      penaMax: ""
+                homicidio_qualificado:
+                  summary: "Art. 121, § 1º - Homicídio qualificado"
+                  value:
+                    success: true
+                    code: "OK"
+                    data:
+                      codigo: "121.1"
+                      codigoFormatado: "Art. 121, § 1º do CP"
+                      artigo: 121
+                      paragrafo: 1
+                      descricao: "Homicídio qualificado"
+                      textoCompleto: "Se o homicídio é cometido:\nI - mediante pago, promessa de recompensa ou motivo fútil;\nII - por motivo de relevante valor social ou moral;\nIII - contra ascendente, descendente, cônjuge, companheiro ou irmão;\nIV - com emprego de veneno, fogo, explosivo, asfixia, tortura ou outro meio insidioso ou cruel, ou que possa resultar perigo comum;\nV - à traição, de emboscada, ou mediante dissimulação ou outro recurso que dificulte ou torne impossível a defesa do ofendido;\nVI - contra autoridade ou contra membro de conselho tutelar, do Ministério Público, da Magistratura ou do Tribunal de Contas, no exercício da função ou em razão dela, ou contra seu cônjuge, ascendente ou descendente;\nVII - contra criança, adolescente, gestante, deficiente físico ou mental ou pessoa maior de 60 (sessenta) anos;\nVIII - que decorra de violência doméstica e familiar ou de discriminação ou preconceito de raça, cor, etnia, religião, origem, condição de pessoa idosa, criança, adolescente ou pessoa com deficiência;\nIX - contra membro de grupo vulnerável, em razão da condição de vulnerabilidade.\nPena - reclusão, de 12 (doze) a 30 (trinta) anos."
+                      tipo: "crime"
+                      legislacao: "CP"
+                      legislacaoNome: "Código Penal"
+                      penaMin: "Reclusão, de 12 a 30 anos"
+                      penaMax: ""
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
+
+  /penal/search:
+    get:
+      tags: [Artigos Penais]
+      summary: Buscar Artigos por Texto
+      description: |
+        Busca artigos penais por texto na descricao ou texto completo.
+        
+        **Fontes de Dados:**
+        - 💾 **Dados fixos** (seed inicial no MongoDB)
+        - 🥇 **Cache Redis** (permanente - ~1ms)
+        - 🥈 **MongoDB** (~10ms se cache miss)
+        
+        **Performance:**
+        - Cache Redis: ~1ms
+        - MongoDB text search: ~50ms
+        - Dados fixos (não expira)
+        
+        **Busca inteligente:**
+        - Busca no campo `busca` (normalizado, lowercase, sem acentos)
+        - Busca em descricao, texto completo e codigo formatado
+        - Case-insensitive
+        - Aceita termos parciais
+        
+        **Exemplo de uso:**
+        ```bash
+        # Buscar artigos sobre "matar alguém"
+        curl "__API_BASE_URL__/penal/search?q=matar%20alguem" \
+          -H "X-API-Key: sua_api_key_aqui"
+        
+        # Buscar artigos sobre "roubo"
+        curl "__API_BASE_URL__/penal/search?q=roubo" \
+          -H "X-API-Key: sua_api_key_aqui"
+        ```
+        
+        **⚠️ Tratamento de dados:**
+        - ✅ **Acentos:** Aceita com ou sem acentos ("homicidio" = "homicídio")
+        - ✅ **Case:** Maiúsculas/minúsculas não importam ("HOMICIDIO" = "homicidio")
+        - ✅ **Encoding:** Automático pelo backend (espaços: + ou %20)
+        - ⚠️ **Formato:** Use espaços ou + para separar palavras
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: "Texto a buscar (descricao, texto completo ou codigo)"
+          schema:
+            type: string
+            example: "matar alguém"
+      responses:
+        '200':
+          description: Artigos encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  code:
+                    type: string
+                    example: "OK"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtigoPenalCompleto'
+              examples:
+                busca_matamento:
+                  summary: "Busca por 'matar alguém'"
+                  value:
+                    success: true
+                    code: "OK"
+                    data:
+                      - codigo: "121"
+                        codigoFormatado: "Art. 121 do CP"
+                        descricao: "Homicídio simples"
+                        textoCompleto: "Matar alguém:\nPena - reclusão, de 6 (seis) a 20 (vinte) anos."
+                        tipo: "crime"
+                        legislacao: "CP"
+                        legislacaoNome: "Codigo Penal"
+        '400':
+          description: Parâmetro de busca inválido (q obrigatório)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                type: "https://retech-core/errors/validation"
+                title: "Validation Error"
+                status: 400
+                detail: "Parâmetro 'q' é obrigatório para busca"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Maintenance'
+
 components:
   schemas:
     CEP:
@@ -716,11 +1060,11 @@ components:
           example: "SP"
         ibge:
           type: string
-          description: Código IBGE do município
+          description: Codigo IBGE do municipio
           example: "3550308"
         ddd:
           type: string
-          description: Código DDD
+          description: Codigo DDD
           example: "11"
         latitude:
           type: number
@@ -856,11 +1200,11 @@ components:
       properties:
         codigo:
           type: string
-          description: Código CNAE
+          description: Codigo CNAE
           example: "64.21-2-00"
         descricao:
           type: string
-          description: Descrição da atividade
+          description: Descricao da atividade
           example: "Bancos comerciais"
 
     CNPJSocio:
@@ -882,7 +1226,7 @@ components:
       properties:
         id:
           type: integer
-          description: Código IBGE do estado
+          description: Codigo IBGE do estado
           example: 26
         sigla:
           type: string
@@ -901,7 +1245,7 @@ components:
       properties:
         id:
           type: integer
-          description: Código IBGE da região
+          description: Codigo IBGE da regiao
           example: 2
         sigla:
           type: string
@@ -918,7 +1262,7 @@ components:
       properties:
         id:
           type: integer
-          description: Código IBGE do município
+          description: Codigo IBGE do municipio
           example: 2611606
         nome:
           type: string
@@ -930,6 +1274,87 @@ components:
         regiao-imediata:
           type: object
           description: Região imediata (nova divisão IBGE)
+
+    ArtigoPenal:
+      type: object
+      description: Artigo penal resumido (para autocomplete/Select2)
+      properties:
+        codigo:
+          type: string
+          description: Codigo do artigo (ex "121", "121.1", "121.1.I")
+          example: "121"
+        codigoFormatado:
+          type: string
+          description: Codigo formatado para exibicao (ex "Art. 121 do CP")
+          example: "Art. 121 do CP"
+        descricao:
+          type: string
+          description: Descricao resumida do artigo
+          example: "Homicidio simples"
+        tipo:
+          type: string
+          description: Tipo (crime ou contravencao)
+          example: "crime"
+          enum: 
+            - crime
+            - contravencao
+        legislacao:
+          type: string
+          description: Codigo da legislacao (CP, LCP, etc)
+          example: "CP"
+        legislacaoNome:
+          type: string
+          description: Nome completo da legislacao
+          example: "Codigo Penal"
+
+    ArtigoPenalCompleto:
+      type: object
+      description: Artigo penal completo (com todos os detalhes)
+      allOf:
+        - $ref: '#/components/schemas/ArtigoPenal'
+        - type: object
+          properties:
+            artigo:
+              type: integer
+              description: Número do artigo
+              example: 121
+            paragrafo:
+              type: integer
+              nullable: true
+              description: Número do parágrafo (se aplicável)
+              example: 1
+            inciso:
+              type: string
+              nullable: true
+              description: Inciso (se aplicável)
+              example: "I"
+            alinea:
+              type: string
+              nullable: true
+              description: Alínea (se aplicável)
+              example: "a"
+            textoCompleto:
+              type: string
+              description: Texto completo do artigo
+              example: "Matar alguém:\nPena - reclusão, de 6 (seis) a 20 (vinte) anos."
+            penaMin:
+              type: string
+              nullable: true
+              description: Penalidade mínima
+              example: "Reclusão, de 6 a 20 anos"
+            penaMax:
+              type: string
+              nullable: true
+              description: Penalidade máxima
+              example: ""
+            createdAt:
+              type: string
+              format: date-time
+              description: Data de criação
+            updatedAt:
+              type: string
+              format: date-time
+              description: Data de atualização
 
     Error:
       type: object
@@ -945,7 +1370,7 @@ components:
           example: "Not Found"
         status:
           type: integer
-          description: Código HTTP
+          description: Codigo HTTP
           example: 404
         detail:
           type: string

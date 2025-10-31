@@ -138,6 +138,7 @@ func NewRouter(
 	cepHandler := handlers.NewCEPHandler(m, redisClient, settings)
 	cnpjHandler := handlers.NewCNPJHandler(m, redisClient, settings)
 	geoHandler := handlers.NewGeoHandler(estados, municipios, redisClient)
+	penalHandler := handlers.NewPenalHandler(m, redisClient)
 
 	// 🔒 ROTAS PÚBLICAS COM SEGURANÇA MULTI-CAMADA
 	// API Key Demo (obrigatória) + Scopes + Rate limiting por IP + Fingerprinting + Throttling
@@ -185,6 +186,31 @@ func NewRouter(
 			playgroundRateLimiter.Middleware(),
 			usageLogger.Middleware(),
 			geoHandler.GetUF,
+		)
+
+		// PENAL (requer scope 'penal')
+		publicGroup.GET("/penal/artigos",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "penal"), // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			penalHandler.ListArtigos,
+		)
+
+		publicGroup.GET("/penal/artigos/:codigo",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "penal"), // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			penalHandler.GetArtigo,
+		)
+
+		publicGroup.GET("/penal/search",
+			auth.AuthAPIKey(apikeys),
+			auth.RequireScope(apikeys, "penal"), // ✅ Valida scope!
+			playgroundRateLimiter.Middleware(),
+			usageLogger.Middleware(),
+			penalHandler.SearchArtigos,
 		)
 	}
 
@@ -242,6 +268,21 @@ func NewRouter(
 		cnpjGroup.GET("/:numero", cnpjHandler.GetCNPJ)
 	}
 
+	// PENAL endpoints (protegidos por API Key + rate limit + logging + manutenção + scopes)
+	penalGroup := r.Group("/penal")
+	penalGroup.Use(
+		maintenanceMiddleware.Middleware(), // Verifica manutenção
+		auth.AuthAPIKey(apikeys),           // Requer API Key válida
+		auth.RequireScope(apikeys, "penal"), // ✅ Verifica scope 'penal' ou 'all'
+		rateLimiter.Middleware(),           // Aplica rate limiting
+		usageLogger.Middleware(),           // Loga uso
+	)
+	{
+		penalGroup.GET("/artigos", penalHandler.ListArtigos)
+		penalGroup.GET("/artigos/:codigo", penalHandler.GetArtigo)
+		penalGroup.GET("/search", penalHandler.SearchArtigos)
+	}
+
 	// Admin endpoints (protegidos por JWT + role SUPER_ADMIN)
 	adminHandler := handlers.NewAdminHandler(tenants, apikeys, users, m)
 	adminGroup := r.Group("/admin")
@@ -282,6 +323,7 @@ func NewRouter(
 		adminGroup.DELETE("/cache/cep", cepHandler.ClearCache)
 		adminGroup.GET("/cache/cnpj/stats", cnpjHandler.GetCacheStats)
 		adminGroup.DELETE("/cache/cnpj", cnpjHandler.ClearCache)
+		adminGroup.GET("/cache/penal/stats", penalHandler.GetCacheStats)
 
 		// Redis Cache Management (admin only)
 		redisStatsHandler := handlers.NewRedisStatsHandler(redisClient)

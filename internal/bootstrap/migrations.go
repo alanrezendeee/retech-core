@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -51,6 +52,11 @@ func NewMigrationManager(db *mongo.Database, log zerolog.Logger) *MigrationManag
 				Version:     "002_seed_municipios",
 				Description: "Popular municípios brasileiros",
 				Apply:       seedMunicipios,
+			},
+			{
+				Version:     "003_seed_penal",
+				Description: "Popular artigos penais brasileiros",
+				Apply:       seedPenal,
 			},
 		},
 	}
@@ -209,5 +215,66 @@ func findSeedFile(filename string) string {
 	}
 
 	return ""
+}
+
+// seedPenal popula os artigos penais
+func seedPenal(ctx context.Context, db *mongo.Database, log zerolog.Logger) error {
+	collection := db.Collection("penal_artigos")
+
+	// Verifica se já existem dados
+	count, err := collection.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		log.Info().Msgf("[seed] Artigos penais já populados (%d registros), pulando", count)
+		return nil
+	}
+
+	// Procura o arquivo penal.json
+	seedFile := findSeedFile("penal.json")
+	if seedFile == "" {
+		return fmt.Errorf("arquivo penal.json não encontrado")
+	}
+
+	log.Info().Msgf("[seed] Carregando artigos penais de: %s", seedFile)
+
+	// Lê o arquivo
+	data, err := os.ReadFile(seedFile)
+	if err != nil {
+		return fmt.Errorf("erro ao ler arquivo penal.json: %w", err)
+	}
+
+	var artigos []domain.ArtigoPenal
+	if err := json.Unmarshal(data, &artigos); err != nil {
+		return fmt.Errorf("erro ao fazer parse de penal.json: %w", err)
+	}
+
+	log.Info().Msgf("[seed] Inserindo %d artigos penais (isso pode demorar)...", len(artigos))
+
+	// Preparar documentos com timestamps e campo busca normalizado
+	now := time.Now()
+	docs := make([]interface{}, len(artigos))
+	for i, artigo := range artigos {
+		artigo.CreatedAt = now
+		artigo.UpdatedAt = now
+		
+		// Normalizar campo busca (lowercase, sem acentos opcionalmente)
+		artigo.Busca = strings.ToLower(artigo.Descricao + " " + artigo.TextoCompleto + " " + artigo.CodigoFormatado)
+		
+		docs[i] = artigo
+	}
+
+	// Insere no banco em lotes
+	if len(docs) > 0 {
+		_, err = collection.InsertMany(ctx, docs)
+		if err != nil {
+			return fmt.Errorf("erro ao inserir artigos penais: %w", err)
+		}
+	}
+
+	log.Info().Msgf("[seed] %d artigos penais inseridos com sucesso", len(artigos))
+	return nil
 }
 

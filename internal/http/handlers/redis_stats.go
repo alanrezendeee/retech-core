@@ -31,6 +31,7 @@ func (h *RedisStatsHandler) GetStats(c *gin.Context) {
 			"cepKeys":      0,
 			"cnpjKeys":     0,
 			"geoKeys":      0,
+			"penalKeys":    0,
 			"memoryUsedMB": 0,
 			"message":      "Redis não está disponível",
 		})
@@ -45,6 +46,7 @@ func (h *RedisStatsHandler) GetStats(c *gin.Context) {
 			"cepKeys":      0,
 			"cnpjKeys":     0,
 			"geoKeys":      0,
+			"penalKeys":    0,
 			"memoryUsedMB": 0,
 			"message":      "Redis client inválido",
 		})
@@ -55,8 +57,9 @@ func (h *RedisStatsHandler) GetStats(c *gin.Context) {
 	cepKeys, _ := redisClient.Keys(ctx, "cep:*")
 	cnpjKeys, _ := redisClient.Keys(ctx, "cnpj:*")
 	geoKeys, _ := redisClient.Keys(ctx, "geo:*")
+	penalKeys, _ := redisClient.Keys(ctx, "penal:*")
 
-	totalKeys := len(cepKeys) + len(cnpjKeys) + len(geoKeys)
+	totalKeys := len(cepKeys) + len(cnpjKeys) + len(geoKeys) + len(penalKeys)
 
 	// Pegar info de memória
 	info, err := redisClient.Info(ctx, "memory")
@@ -76,6 +79,7 @@ func (h *RedisStatsHandler) GetStats(c *gin.Context) {
 		"cepKeys":      len(cepKeys),
 		"cnpjKeys":     len(cnpjKeys),
 		"geoKeys":      len(geoKeys),
+		"penalKeys":    len(penalKeys),
 		"memoryUsedMB": fmt.Sprintf("%.2f", memoryUsedMB),
 		"message":      "Redis operacional",
 	})
