@@ -20,6 +20,9 @@ type ArtigoPenal struct {
 	CodigoFormatado string  `json:"codigoFormatado" bson:"codigoFormatado"` // "Art. 121, § 1º, I, a) do CP"
 	// Para busca e autocomplete
 	Busca         string    `json:"-" bson:"busca"` // Texto normalizado para busca (lowercase, sem acentos)
+	// Documentação e rastreabilidade
+	Fonte         string    `json:"fonte" bson:"fonte"` // URL ou referência da fonte oficial
+	DataAtualizacao string  `json:"dataAtualizacao" bson:"dataAtualizacao"` // Data da última atualização da fonte oficial
 	CreatedAt     time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt" bson:"updatedAt"`
 }
