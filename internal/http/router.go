@@ -197,7 +197,8 @@ func NewRouter(
 			penalHandler.ListArtigos,
 		)
 
-		publicGroup.GET("/penal/artigos/:codigo",
+		// Usar *codigo para permitir códigos com : (ex: DRG:33)
+		publicGroup.GET("/penal/artigos/*codigo",
 			auth.AuthAPIKey(apikeys),
 			auth.RequireScope(apikeys, "penal"), // ✅ Valida scope!
 			playgroundRateLimiter.Middleware(),

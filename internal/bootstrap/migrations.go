@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +16,7 @@ import (
 	"github.com/theretech/retech-core/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Migration representa uma migração/seed
@@ -218,19 +221,9 @@ func findSeedFile(filename string) string {
 }
 
 // seedPenal popula os artigos penais
+// Estratégia inteligente: usa upsert baseado em idUnico para adicionar/atualizar apenas o necessário
 func seedPenal(ctx context.Context, db *mongo.Database, log zerolog.Logger) error {
 	collection := db.Collection("penal_artigos")
-
-	// Verifica se já existem dados
-	count, err := collection.CountDocuments(ctx, bson.M{})
-	if err != nil {
-		return err
-	}
-
-	if count > 0 {
-		log.Info().Msgf("[seed] Artigos penais já populados (%d registros), pulando", count)
-		return nil
-	}
 
 	// Procura o arquivo penal.json
 	seedFile := findSeedFile("penal.json")
@@ -251,30 +244,272 @@ func seedPenal(ctx context.Context, db *mongo.Database, log zerolog.Logger) erro
 		return fmt.Errorf("erro ao fazer parse de penal.json: %w", err)
 	}
 
-	log.Info().Msgf("[seed] Inserindo %d artigos penais (isso pode demorar)...", len(artigos))
+	log.Info().Msgf("[seed] Arquivo penal.json contém %d artigos", len(artigos))
 
-	// Preparar documentos com timestamps e campo busca normalizado
-	now := time.Now()
-	docs := make([]interface{}, len(artigos))
-	for i, artigo := range artigos {
-		artigo.CreatedAt = now
-		artigo.UpdatedAt = now
-		
-		// Normalizar campo busca (lowercase, sem acentos opcionalmente)
-		artigo.Busca = strings.ToLower(artigo.Descricao + " " + artigo.TextoCompleto + " " + artigo.CodigoFormatado)
-		
-		docs[i] = artigo
+	// Verificar quantos já existem no banco
+	count, err := collection.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return err
 	}
 
-	// Insere no banco em lotes
-	if len(docs) > 0 {
-		_, err = collection.InsertMany(ctx, docs)
+	log.Info().Msgf("[seed] Banco de dados contém %d artigos", count)
+
+	// Mapeamento de legislações para códigos curtos (para idUnico)
+	legislacaoCodes := map[string]string{
+		"CP":              "CP",
+		"LCP":             "LCP",
+		"Lei 11.343/2006": "DRG", // Drogas
+		"ECA":             "ECA",
+		"CTB":             "CTB",
+		"Lei 9.605/98":    "AMB", // Ambiente
+		"CDC":             "CDC",
+		"Lei 9.613/98":    "LVD", // Lavagem
+	}
+
+	// Estratégia: Upsert baseado em idUnico
+	// - Se o artigo já existe (por idUnico) → atualiza
+	// - Se o artigo não existe → insere
+	// Isso permite adicionar novos artigos sem limpar tudo
+	now := time.Now()
+	inserted := 0
+	updated := 0
+	
+	for _, artigo := range artigos {
+		// Preparar artigo com timestamps e campos normalizados
+		artigo.UpdatedAt = now
+		if artigo.CreatedAt.IsZero() {
+			artigo.CreatedAt = now
+		}
+		
+		// Normalizar campo busca (lowercase)
+		artigo.Busca = strings.ToLower(artigo.Descricao + " " + artigo.TextoCompleto + " " + artigo.CodigoFormatado)
+		
+		// Gerar idUnico com código curto (se não existir)
+		if artigo.IdUnico == "" {
+			legCode := legislacaoCodes[artigo.Legislacao]
+			if legCode == "" {
+				legCode = artigo.Legislacao
+			}
+			artigo.IdUnico = fmt.Sprintf("%s:%s", legCode, artigo.Codigo)
+		} else {
+			// Atualizar idUnico para código curto se necessário
+			parts := strings.Split(artigo.IdUnico, ":")
+			if len(parts) == 2 {
+				legOriginal := parts[0]
+				codigoPart := parts[1]
+				legCode := legislacaoCodes[legOriginal]
+				if legCode != "" && legCode != legOriginal {
+					artigo.IdUnico = fmt.Sprintf("%s:%s", legCode, codigoPart)
+				}
+			}
+		}
+		
+		// Gerar hashConteudo se não existir
+		if artigo.HashConteudo == "" {
+			conteudoHash := fmt.Sprintf("%s:%s:%s", artigo.Legislacao, artigo.Codigo, artigo.TextoCompleto)
+			hash := sha256.Sum256([]byte(conteudoHash))
+			artigo.HashConteudo = hex.EncodeToString(hash[:])
+		}
+		
+		// Validar idUnico antes de fazer upsert
+		if artigo.IdUnico == "" {
+			log.Warn().Msgf("[seed] Artigo sem idUnico ignorado: código=%s, legislação=%s", artigo.Codigo, artigo.Legislacao)
+			continue
+		}
+		
+		// Upsert: inserir ou atualizar baseado em idUnico
+		filter := bson.M{"idUnico": artigo.IdUnico}
+		update := bson.M{
+			"$set": bson.M{
+				"codigo":          artigo.Codigo,
+				"artigo":          artigo.Artigo,
+				"paragrafo":       artigo.Paragrafo,
+				"inciso":          artigo.Inciso,
+				"alinea":          artigo.Alinea,
+				"descricao":       artigo.Descricao,
+				"textoCompleto":   artigo.TextoCompleto,
+				"tipo":            artigo.Tipo,
+				"legislacao":      artigo.Legislacao,
+				"legislacaoNome":  artigo.LegislacaoNome,
+				"penaMin":         artigo.PenaMin,
+				"penaMax":         artigo.PenaMax,
+				"codigoFormatado": artigo.CodigoFormatado,
+				"busca":           artigo.Busca,
+				"fonte":           artigo.Fonte,
+				"dataAtualizacao": artigo.DataAtualizacao,
+				"hashConteudo":    artigo.HashConteudo,
+				"idUnico":         artigo.IdUnico,
+				"updatedAt":       artigo.UpdatedAt,
+			},
+			"$setOnInsert": bson.M{
+				"createdAt": artigo.CreatedAt,
+			},
+		}
+		
+		opts := options.Update().SetUpsert(true)
+		result, err := collection.UpdateOne(ctx, filter, update, opts)
 		if err != nil {
-			return fmt.Errorf("erro ao inserir artigos penais: %w", err)
+			// Log detalhado do erro
+			log.Error().Err(err).
+				Str("idUnico", artigo.IdUnico).
+				Str("codigo", artigo.Codigo).
+				Str("legislacao", artigo.Legislacao).
+				Msg("[seed] Erro ao fazer upsert do artigo")
+			
+			// Se for erro de índice único, tentar remover índices problemáticos e tentar novamente
+			if strings.Contains(err.Error(), "E11000") || strings.Contains(err.Error(), "duplicate key") {
+				log.Warn().Msgf("[seed] Erro de duplicata detectado para %s. Verificando e removendo índices problemáticos...", artigo.IdUnico)
+				
+				// Listar todos os índices e remover qualquer índice único em "codigo"
+				indexes, idxErr := collection.Indexes().List(ctx)
+				if idxErr == nil && indexes != nil {
+					for indexes.Next(ctx) {
+						var idx bson.M
+						if indexes.Decode(&idx) == nil {
+							name, _ := idx["name"].(string)
+							key, _ := idx["key"].(bson.M)
+							unique, _ := idx["unique"].(bool)
+							
+							// Remover índice único em "codigo" (qualquer nome: codigo_unique, codigo_1, etc)
+							if unique && key != nil {
+								if _, hasCodigo := key["codigo"]; hasCodigo {
+									if name != "idunico_unique" { // Não remover o índice correto
+										log.Info().Str("index", name).Msgf("[seed] Removendo índice único problemático %s", name)
+										_, _ = collection.Indexes().DropOne(ctx, name)
+									}
+								}
+							}
+						}
+					}
+					indexes.Close(ctx)
+				}
+				
+				// Tentar novamente após remover índices problemáticos
+				result, err = collection.UpdateOne(ctx, filter, update, opts)
+				if err != nil {
+					log.Error().Err(err).Msgf("[seed] Erro persistente ao inserir artigo %s mesmo após remover índices", artigo.IdUnico)
+					continue
+				}
+				log.Info().Msgf("[seed] ✅ Artigo %s inserido após correção de índices", artigo.IdUnico)
+			} else {
+				continue
+			}
+		}
+		
+		if result.UpsertedCount > 0 {
+			inserted++
+		} else if result.ModifiedCount > 0 {
+			updated++
 		}
 	}
 
-	log.Info().Msgf("[seed] %d artigos penais inseridos com sucesso", len(artigos))
+	log.Info().Msgf("[seed] Processados %d artigos: %d inseridos, %d atualizados", len(artigos), inserted, updated)
+	
+	// Verificar contagem final e comparar com esperado
+	finalCount, err := collection.CountDocuments(ctx, bson.M{})
+	if err == nil {
+		expectedCount := int64(len(artigos))
+		log.Info().Msgf("[seed] Total de artigos no banco após seed: %d", finalCount)
+		if finalCount < expectedCount {
+			log.Warn().Msgf("[seed] ⚠️  ATENÇÃO: Esperados %d artigos, mas apenas %d foram inseridos/atualizados. Verificando artigos faltantes...", expectedCount, finalCount)
+			
+			// Buscar todos os idUnicos que estão no banco
+			cursor, err := collection.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"idUnico": 1}))
+			idunicosNoBanco := make(map[string]bool)
+			if err == nil {
+				defer cursor.Close(ctx)
+				var docs []bson.M
+				if err := cursor.All(ctx, &docs); err == nil {
+					for _, doc := range docs {
+						if id, ok := doc["idUnico"].(string); ok {
+							idunicosNoBanco[id] = true
+						}
+					}
+				}
+			}
+			
+			// Identificar artigos do JSON que não estão no banco
+			faltantes := []string{}
+			for _, artigo := range artigos {
+				if !idunicosNoBanco[artigo.IdUnico] {
+					faltantes = append(faltantes, artigo.IdUnico)
+				}
+			}
+			
+			if len(faltantes) > 0 {
+				log.Warn().Msgf("[seed] 📋 %d artigos faltantes identificados: %v", len(faltantes), faltantes)
+				log.Info().Msg("[seed] Tentando inserir artigos faltantes novamente...")
+				
+				// Tentar inserir os faltantes novamente
+				faltantesInseridos := 0
+				for _, idUnico := range faltantes {
+					for _, artigo := range artigos {
+						if artigo.IdUnico == idUnico {
+							// Preparar artigo novamente
+							artigo.UpdatedAt = time.Now()
+							if artigo.CreatedAt.IsZero() {
+								artigo.CreatedAt = time.Now()
+							}
+							artigo.Busca = strings.ToLower(artigo.Descricao + " " + artigo.TextoCompleto + " " + artigo.CodigoFormatado)
+							
+							filter := bson.M{"idUnico": artigo.IdUnico}
+							update := bson.M{
+								"$set": bson.M{
+									"codigo":          artigo.Codigo,
+									"artigo":          artigo.Artigo,
+									"paragrafo":       artigo.Paragrafo,
+									"inciso":          artigo.Inciso,
+									"alinea":          artigo.Alinea,
+									"descricao":       artigo.Descricao,
+									"textoCompleto":   artigo.TextoCompleto,
+									"tipo":            artigo.Tipo,
+									"legislacao":      artigo.Legislacao,
+									"legislacaoNome":  artigo.LegislacaoNome,
+									"penaMin":         artigo.PenaMin,
+									"penaMax":         artigo.PenaMax,
+									"codigoFormatado": artigo.CodigoFormatado,
+									"busca":           artigo.Busca,
+									"fonte":           artigo.Fonte,
+									"dataAtualizacao": artigo.DataAtualizacao,
+									"hashConteudo":    artigo.HashConteudo,
+									"idUnico":         artigo.IdUnico,
+									"updatedAt":       artigo.UpdatedAt,
+								},
+								"$setOnInsert": bson.M{
+									"createdAt": artigo.CreatedAt,
+								},
+							}
+							
+							opts := options.Update().SetUpsert(true)
+							result, err := collection.UpdateOne(ctx, filter, update, opts)
+							if err == nil && result.UpsertedCount > 0 {
+								faltantesInseridos++
+								log.Info().Msgf("[seed] ✅ Artigo faltante %s inserido com sucesso", artigo.IdUnico)
+							} else if err != nil {
+								log.Error().Err(err).Msgf("[seed] ❌ Erro ao inserir artigo faltante %s", artigo.IdUnico)
+							}
+							break
+						}
+					}
+				}
+				
+				if faltantesInseridos > 0 {
+					log.Info().Msgf("[seed] ✅ %d artigos faltantes foram inseridos com sucesso", faltantesInseridos)
+				}
+			}
+			
+			// Verificar contagem final novamente
+			finalCount, _ = collection.CountDocuments(ctx, bson.M{})
+			if finalCount < expectedCount {
+				log.Warn().Msgf("[seed] ⚠️  Ainda faltam %d artigos. Verifique os logs de erro acima.", expectedCount-finalCount)
+			} else {
+				log.Info().Msgf("[seed] ✅ Todos os %d artigos foram inseridos com sucesso!", finalCount)
+			}
+		} else {
+			log.Info().Msgf("[seed] ✅ Todos os %d artigos foram processados com sucesso", finalCount)
+		}
+	}
+	
 	return nil
 }
 

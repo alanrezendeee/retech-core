@@ -23,17 +23,20 @@ type ArtigoPenal struct {
 	// Documentação e rastreabilidade
 	Fonte         string    `json:"fonte" bson:"fonte"` // URL ou referência da fonte oficial
 	DataAtualizacao string  `json:"dataAtualizacao" bson:"dataAtualizacao"` // Data da última atualização da fonte oficial
+	HashConteudo  string    `json:"hashConteudo,omitempty" bson:"hashConteudo,omitempty"` // SHA256 para detectar alterações
+	IdUnico       string    `json:"idUnico" bson:"idUnico"` // Identificador único: "LEGISLACAO:CODIGO" (ex: "CP:121", "Lei 11.343/2006:33")
 	CreatedAt     time.Time `json:"createdAt" bson:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt" bson:"updatedAt"`
 }
 
 // PenalResponse representa a resposta da API para autocomplete
 type PenalResponse struct {
-	Codigo        string `json:"codigo"`
+	Codigo          string `json:"codigo"`
 	CodigoFormatado string `json:"codigoFormatado"`
-	Descricao     string `json:"descricao"`
-	Tipo          string `json:"tipo"`
-	Legislacao    string `json:"legislacao"`
-	LegislacaoNome string `json:"legislacaoNome"`
+	Descricao       string `json:"descricao"`
+	Tipo            string `json:"tipo"`
+	Legislacao      string `json:"legislacao"`
+	LegislacaoNome  string `json:"legislacaoNome"`
+	IdUnico         string `json:"idUnico"` // Identificador único: "LEGISLACAO:CODIGO" para diferenciar artigos com mesmo código em legislações diferentes
 }
 

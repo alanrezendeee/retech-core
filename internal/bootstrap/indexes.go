@@ -200,10 +200,54 @@ func CreateIndexes(ctx context.Context, db *mongo.Database, log zerolog.Logger) 
 	}
 
 	// ✅ PERFORMANCE: Índices para penal_artigos (dados fixos, cache permanente)
+	// Remover índices antigos que podem causar conflito (migração)
+	coll := db.Collection("penal_artigos")
+	indexes, err := coll.Indexes().List(ctx)
+	indicesRemovidos := []string{}
+	if err == nil && indexes != nil {
+		for indexes.Next(ctx) {
+			var idx bson.M
+			if indexes.Decode(&idx) == nil {
+				name, _ := idx["name"].(string)
+				key, _ := idx["key"].(bson.M)
+				unique, _ := idx["unique"].(bool)
+				
+				// Remover índice único em "codigo" (seja codigo_unique, codigo_1, etc)
+				if name != "" && unique {
+					if key != nil {
+						if _, hasCodigo := key["codigo"]; hasCodigo {
+							// É um índice único em codigo - remover
+							if name != "idunico_unique" { // Não remover o índice correto
+								log.Info().Str("index", name).Msg("[index] Removendo índice único antigo em codigo...")
+								_, err := coll.Indexes().DropOne(ctx, name)
+								if err == nil {
+									indicesRemovidos = append(indicesRemovidos, name)
+									log.Info().Str("index", name).Msg("[index] ✅ Índice antigo removido")
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		indexes.Close(ctx)
+	}
+	if len(indicesRemovidos) > 0 {
+		log.Info().Strs("indices", indicesRemovidos).Msg("[index] Removidos índices antigos que causavam conflito")
+	}
+
+	// Índice único em idUnico (que combina legislação + código)
 	if err := createIndex("penal_artigos", mongo.IndexModel{
-		Keys:    bson.D{{Key: "codigo", Value: 1}},
+		Keys:    bson.D{{Key: "idUnico", Value: 1}},
 		Options: options.Index().SetUnique(true),
-	}, "codigo_unique"); err != nil {
+	}, "idunico_unique"); err != nil {
+		return err
+	}
+
+	// Índice não-único em codigo (para busca rápida, mas permite duplicatas entre legislações)
+	if err := createIndex("penal_artigos", mongo.IndexModel{
+		Keys: bson.D{{Key: "codigo", Value: 1}},
+	}, "codigo"); err != nil {
 		return err
 	}
 

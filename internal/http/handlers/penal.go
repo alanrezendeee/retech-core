@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -42,13 +44,35 @@ func (h *PenalHandler) ListArtigos(c *gin.Context) {
 	}
 
 	// ⚡ CACHE REDIS (ultra-rápido, <1ms)
+	// IMPORTANTE: Para glossário completo (sem filtros), verificar se cache tem todos os artigos
 	if h.redis != nil {
 		if redisClient, ok := h.redis.(*cache.RedisClient); ok {
 			cachedJSON, err := redisClient.Get(ctx, cacheKey)
 			if err == nil && cachedJSON != "" {
-				c.Header("Content-Type", "application/json")
-				c.String(http.StatusOK, cachedJSON)
-				return // ⚡ <1ms!
+				// Se é busca completa (glossário), validar que tem todos os artigos
+				if query == "" && tipo == "" && legislacao == "" {
+					// Parse rápido para verificar quantidade
+					var cachedData map[string]interface{}
+					if json.Unmarshal([]byte(cachedJSON), &cachedData) == nil {
+						if data, ok := cachedData["data"].([]interface{}); ok {
+							// Se cache tem menos de 90 artigos, invalidar (pode estar desatualizado)
+							if len(data) < 90 {
+								// Cache desatualizado, remover e buscar do banco
+								redisClient.Del(ctx, cacheKey)
+							} else {
+								// Cache válido, retornar
+								c.Header("Content-Type", "application/json")
+								c.String(http.StatusOK, cachedJSON)
+								return // ⚡ <1ms!
+							}
+						}
+					}
+				} else {
+					// Para buscas com filtros, sempre usar cache
+					c.Header("Content-Type", "application/json")
+					c.String(http.StatusOK, cachedJSON)
+					return // ⚡ <1ms!
+				}
 			}
 		}
 	}
@@ -74,8 +98,14 @@ func (h *PenalHandler) ListArtigos(c *gin.Context) {
 	}
 
 	findOptions := options.Find().
-		SetSort(bson.D{{Key: "artigo", Value: 1}, {Key: "paragrafo", Value: 1}}).
-		SetLimit(100) // Limitar a 100 resultados para autocomplete
+		SetSort(bson.D{{Key: "artigo", Value: 1}, {Key: "paragrafo", Value: 1}})
+	
+	// Se não há filtros (busca completa), retornar todos os artigos (para glossário)
+	// Se há filtros (autocomplete), limitar a 100 resultados
+	if query != "" || tipo != "" || legislacao != "" {
+		findOptions = findOptions.SetLimit(100) // Limitar para autocomplete com filtros
+	}
+	// Sem filtros = retornar todos (sem limite) para glossário completo
 
 	cursor, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
@@ -110,6 +140,7 @@ func (h *PenalHandler) ListArtigos(c *gin.Context) {
 			Tipo:            artigo.Tipo,
 			Legislacao:      artigo.Legislacao,
 			LegislacaoNome:  artigo.LegislacaoNome,
+			IdUnico:         artigo.IdUnico,
 		})
 	}
 
@@ -136,12 +167,27 @@ func (h *PenalHandler) ListArtigos(c *gin.Context) {
 
 // GetArtigo retorna um artigo específico por código
 // GET /penal/artigos/:codigo
+// Aceita:
+//   - Código simples: "121" ou "33" (busca primeiro no CP, depois em outras legislações)
+//   - ID único: "CP:121", "DRG:33", "AMB:54" (códigos curtos: CP, DRG, AMB, LCP, ECA, CTB, CDC, LVD)
 func (h *PenalHandler) GetArtigo(c *gin.Context) {
 	ctx := c.Request.Context()
 	codigo := c.Param("codigo")
 
-	// Normalizar código (remover espaços, converter para minúsculo para busca)
-	codigoNormalizado := strings.ToLower(strings.TrimSpace(codigo))
+	// Quando usar *codigo, o Gin adiciona / no início, remover se necessário
+	if strings.HasPrefix(codigo, "/") {
+		codigo = codigo[1:]
+	}
+
+	// Decodificar URL (importante para códigos com :, /, etc)
+	// O Gin já decodifica automaticamente, mas vamos garantir
+	if decoded, err := url.PathUnescape(codigo); err == nil {
+		codigo = decoded
+	}
+
+	// Normalizar código (remover espaços)
+	codigo = strings.TrimSpace(codigo)
+	codigoNormalizado := strings.ToLower(codigo)
 
 	// Criar chave de cache
 	cacheKey := fmt.Sprintf("penal:artigo:%s", codigoNormalizado)
@@ -161,28 +207,105 @@ func (h *PenalHandler) GetArtigo(c *gin.Context) {
 	// 🗄️ BUSCAR DO MONGODB
 	collection := h.db.DB.Collection("penal_artigos")
 
-	// Buscar por código exato (sem regex para evitar matches parciais como 55 -> 155)
-	filter := bson.M{"codigo": codigo}
-
+	var filter bson.M
 	var artigo domain.ArtigoPenal
-	err := collection.FindOne(ctx, filter).Decode(&artigo)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			c.JSON(http.StatusNotFound, gin.H{
-				"type":   "https://retech-core/errors/not-found",
-				"title":  "Artigo Not Found",
-				"status": http.StatusNotFound,
-				"detail": fmt.Sprintf("Artigo %s não encontrado", codigo),
+
+	// Verificar se é formato idUnico (CODIGO:ARTIGO)
+	if strings.Contains(codigo, ":") {
+		// Busca por idUnico (exato) - formato: "CP:121", "DRG:33", etc
+		filter = bson.M{"idUnico": codigo}
+		err := collection.FindOne(ctx, filter).Decode(&artigo)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				c.JSON(http.StatusNotFound, gin.H{
+					"type":   "https://retech-core/errors/not-found",
+					"title":  "Artigo Not Found",
+					"status": http.StatusNotFound,
+					"detail": fmt.Sprintf("Artigo %s não encontrado. Use o formato 'CODIGO:ARTIGO' (ex: 'CP:121', 'DRG:33', 'AMB:54')", codigo),
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"type":   "https://retech-core/errors/database-error",
+				"title":  "Database Error",
+				"status": http.StatusInternalServerError,
+				"detail": "Erro ao buscar artigo",
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"type":   "https://retech-core/errors/database-error",
-			"title":  "Database Error",
-			"status": http.StatusInternalServerError,
-			"detail": "Erro ao buscar artigo",
-		})
-		return
+	} else {
+		// Busca por código simples
+		// Primeiro tenta no CP (legislação mais comum)
+		filter = bson.M{"codigo": codigo, "legislacao": "CP"}
+		err := collection.FindOne(ctx, filter).Decode(&artigo)
+		
+		if err == mongo.ErrNoDocuments {
+			// Se não encontrou no CP, busca em qualquer legislação
+			filter = bson.M{"codigo": codigo}
+			cursor, err := collection.Find(ctx, filter)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"type":   "https://retech-core/errors/database-error",
+					"title":  "Database Error",
+					"status": http.StatusInternalServerError,
+					"detail": "Erro ao buscar artigo",
+				})
+				return
+			}
+			defer cursor.Close(ctx)
+
+			var artigos []domain.ArtigoPenal
+			if err := cursor.All(ctx, &artigos); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"type":   "https://retech-core/errors/database-error",
+					"title":  "Database Error",
+					"status": http.StatusInternalServerError,
+					"detail": "Erro ao processar resultados",
+				})
+				return
+			}
+
+			if len(artigos) == 0 {
+				c.JSON(http.StatusNotFound, gin.H{
+					"type":   "https://retech-core/errors/not-found",
+					"title":  "Artigo Not Found",
+					"status": http.StatusNotFound,
+					"detail": fmt.Sprintf("Artigo %s não encontrado. Use o formato 'CODIGO:ARTIGO' para especificar a legislação (ex: 'CP:121', 'DRG:33', 'AMB:54')", codigo),
+				})
+				return
+			}
+
+			if len(artigos) > 1 {
+				// Múltiplos artigos encontrados - retornar lista com sugestão
+				legislacoes := make([]string, len(artigos))
+				for i, art := range artigos {
+					legislacoes[i] = art.Legislacao
+				}
+				c.JSON(http.StatusMultipleChoices, gin.H{
+					"type":   "https://retech-core/errors/multiple-choices",
+					"title":  "Multiple Articles Found",
+					"status": http.StatusMultipleChoices,
+					"detail": fmt.Sprintf("Múltiplos artigos encontrados com código '%s'. Use o formato 'CODIGO:ARTIGO' para especificar", codigo),
+					"data": gin.H{
+						"codigo": codigo,
+						"artigos": artigos,
+						"legislacoes": legislacoes,
+						"sugestao": "Use: /penal/artigos/CODIGO:ARTIGO (ex: /penal/artigos/CP:121 ou /penal/artigos/DRG:33)",
+					},
+				})
+				return
+			}
+
+			artigo = artigos[0]
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"type":   "https://retech-core/errors/database-error",
+				"title":  "Database Error",
+				"status": http.StatusInternalServerError,
+				"detail": "Erro ao buscar artigo",
+			})
+			return
+		}
 	}
 
 	response := gin.H{
@@ -282,6 +405,7 @@ func (h *PenalHandler) SearchArtigos(c *gin.Context) {
 			Tipo:            artigo.Tipo,
 			Legislacao:      artigo.Legislacao,
 			LegislacaoNome:  artigo.LegislacaoNome,
+			IdUnico:         artigo.IdUnico,
 		})
 	}
 

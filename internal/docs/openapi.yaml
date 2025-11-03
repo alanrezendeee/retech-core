@@ -1306,6 +1306,10 @@ components:
           type: string
           description: Nome completo da legislacao
           example: "Codigo Penal"
+        idUnico:
+          type: string
+          description: Identificador unico no formato "LEGISLACAO:CODIGO" para evitar ambiguidade quando o mesmo codigo aparece em multiplas legislacoes
+          example: "CP:121"
 
     ArtigoPenalCompleto:
       type: object
@@ -1355,6 +1359,14 @@ components:
               type: string
               format: date-time
               description: Data de atualização
+            hashConteudo:
+              type: string
+              description: Hash SHA256 do conteudo para rastreamento de alteracoes na fonte oficial
+              example: "a1b2c3d4e5f6..."
+            idUnico:
+              type: string
+              description: Identificador unico no formato "LEGISLACAO:CODIGO" para evitar ambiguidade
+              example: "CP:121"
 
     Error:
       type: object
